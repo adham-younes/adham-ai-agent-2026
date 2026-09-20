@@ -1,35 +1,43 @@
 # adham-ai-agent-2026
 
-This is an [eve](https://eve.dev) agent bootstrapped with [`eve init`](https://eve.dev/docs/reference/cli#eve-init).
+Public Eve agent with connector definitions under `agent/connections/`.
 
-## Getting started
+## Connector discovery
 
-First, run the development server:
+Eve discovers each connector module in `agent/connections/` during the Eve build/deployment process. The repository is public so GitHub-based tools such as ChatGPT and Codex can inspect the source.
+
+Configured connector modules:
+
+- Agentcard
+- Agentmail
+- Cloudflare
+- Coda
+- Hugging Face
+- Jotform
+- Local Falcon
+- Lovable
+- Otter AI
+- Pendo
+- Resend
+- Stripe
+- Supabase
+- Vercel
+- Zernio
+
+The connector definitions use Vercel Connect project authentication; credentials are not stored in this repository.
+
+## Development
 
 ```bash
-eve dev
+pnpm install
+pnpm dev:eve
 ```
 
-The development TUI opens an interactive session where you can send messages to your agent.
-
-Start by editing `agent/instructions.md` to define the agent's identity, purpose, tone, and response guidelines. Configure its model and runtime behavior in `agent/agent.ts`.
-
-Add capabilities under `agent/`, including tools, connections, channels, skills, subagents, and schedules. eve reloads your changes as you work.
-
-## Learn more
-
-To learn more about eve, explore these resources:
-
-- [eve documentation](https://eve.dev/docs) — learn about eve's features and authoring APIs.
-- [Build an Agent tutorial](https://eve.dev/docs/tutorial/first-agent) — build and deploy an agent step by step.
-- [eve on GitHub](https://github.com/vercel/eve) — view the source and contribute.
-
-## Deploy on Vercel
-
-Deploy your agent to [Vercel](https://vercel.com) from the project root:
+## Deploy
 
 ```bash
-eve deploy
+pnpm build:eve
+pnpm deploy
 ```
 
-`eve deploy` links a Vercel project if needed and deploys the agent to production. See the [eve deployment documentation](https://eve.dev/docs/guides/deployment/vercel) for authentication, environment variables, and deployment options.
+After deployment, each external connector still requires its own authorization in the consuming application. Making a repository public does not grant ChatGPT or Codex access to third-party services.
