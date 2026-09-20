@@ -20,14 +20,15 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "adham-ai-agent-2026",
-  description: "A Next.js starter for eve agents with AI Elements.",
+  title: "adham | الوكيل التنفيذي الذكي",
+  description: "وكيل عربي تنفيذي للبحث والتحليل وبناء الحلول وتنفيذها.",
+  themeColor: "#080b12",
 };
 
 // The page and Eve routes validate the generated app's Better Auth session.
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <html className={cn(sans.variable, mono.variable)} lang="en">
+    <html className={cn(sans.variable, mono.variable)} dir="rtl" lang="ar">
       <body>
         <TooltipProvider>{children}</TooltipProvider>
       </body>

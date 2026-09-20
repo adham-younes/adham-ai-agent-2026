@@ -178,8 +178,31 @@ export function AgentChat({
         )}
       >
         {showConversationLayout ? null : (
-          <div className="flex flex-col items-center gap-3 text-center">
-            <h1 className="font-medium text-5xl tracking-tighter">{AGENT_NAME}</h1>
+          <div className="flex w-full flex-col items-center gap-7 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary shadow-[0_0_40px_color-mix(in_oklab,var(--primary)_18%,transparent)]">
+                <BrainIcon className="size-8" />
+              </div>
+              <div className="flex flex-col gap-2">
+                <p className="text-sm font-medium tracking-wide text-primary">ADHAM AI · EXECUTIVE MODE</p>
+                <h1 className="font-semibold text-4xl tracking-tight sm:text-5xl">كيف أقدر أساعدك اليوم؟</h1>
+                <p className="max-w-lg text-sm leading-6 text-muted-foreground sm:text-base">وكيلك التنفيذي للبحث، التحليل، البرمجة، وتشغيل المهام الواقعية باحتراف.</p>
+              </div>
+            </div>
+            <div className="grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                "حلّل فكرة مشروع وحوّلها لخطة تنفيذ",
+                "ابحث عن أحدث المعلومات مع المصادر",
+                "راجع هذا الكود واكتشف المشاكل",
+              ].map((suggestion) => (
+                <div
+                  className="rounded-xl border border-border/70 bg-card/70 px-3 py-3 text-right text-xs leading-5 text-muted-foreground"
+                  key={suggestion}
+                >
+                  {suggestion}
+                </div>
+              ))}
+            </div>
           </div>
         )}
         <div className="w-full">{composer}</div>
