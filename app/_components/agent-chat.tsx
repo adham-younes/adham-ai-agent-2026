@@ -308,7 +308,7 @@ function getLatestTurnFailure(
 
     if (event.type === "turn.failed") {
       return event.data.code === "MODEL_CALL_FAILED"
-        ? "The model is temporarily unavailable. Please try again."
+        ? "تعذر تشغيل النموذج حاليًا. نموذج Groq هذا غير متاح للحساب المجاني عبر Vercel AI Gateway؛ أضف رصيدًا مدفوعًا في Vercel AI أو اختر نموذجًا متاحًا ثم أعد المحاولة."
         : event.data.message;
     }
 
