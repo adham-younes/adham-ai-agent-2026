@@ -1,7 +1,11 @@
 import { betterAuth } from "better-auth";
 
 const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
-const DEVELOPMENT_ALLOWED_HOSTS = ["localhost:*", "127.0.0.1:*"];
+const DEVELOPMENT_ALLOWED_HOSTS = [
+  "localhost:*",
+  "127.0.0.1:*",
+  "sb-*.vercel.run",
+];
 
 function getAllowedHosts(): string[] {
   if (process.env.NODE_ENV === "development") {
