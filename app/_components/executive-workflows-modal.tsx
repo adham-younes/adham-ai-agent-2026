@@ -12,7 +12,9 @@ import {
   Code2Icon,
   CpuIcon,
   DatabaseIcon,
+  DownloadIcon,
   ExternalLinkIcon,
+  GlobeIcon,
   Loader2Icon,
   MessageSquareIcon,
   PlayIcon,
@@ -20,6 +22,7 @@ import {
   ShieldAlertIcon,
   ShieldCheckIcon,
   SparklesIcon,
+  TimerIcon,
   XIcon,
   ZapIcon,
 } from "lucide-react";
@@ -36,7 +39,8 @@ import { cn } from "@/lib/utils";
 export type WorkflowPipelineType =
   | "feature-delivery"
   | "database-engineering"
-  | "code-audit-repair";
+  | "code-audit-repair"
+  | "release-readiness";
 
 interface ExecutiveWorkflowsModalProps {
   readonly isOpen: boolean;
@@ -56,6 +60,8 @@ export function ExecutiveWorkflowsModal({
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string>();
   const [executionResult, setExecutionResult] = useState<any>(null);
+  const [executionDuration, setExecutionDuration] = useState<number>();
+  const [runId, setRunId] = useState<string>();
   const [copiedKey, setCopiedKey] = useState<string>();
 
   // Feature Delivery Form
@@ -87,16 +93,74 @@ export function ExecutiveWorkflowsModal({
     "التحقق من صحة التوكن ومنع التزييف ورفع كفاءة التحقق بدون استعلامات زائدة.",
   );
 
+  // Release Readiness Form
+  const [releaseAppName, setReleaseAppName] = useState("adham-ai-agent-2026");
+  const [releaseEnv, setReleaseEnv] = useState<"production" | "staging" | "preview">("production");
+  const [releaseScope, setReleaseScope] = useState(
+    "إطلاق منظومة مسارات Mastra والتخزين الدائم واستوديو المخرجات التنفيذي المتكامل.",
+  );
+  const [releaseIntegrations, setReleaseIntegrations] = useState(
+    "Groq LPU Swarm, Supabase PostgreSQL, Vercel Edge",
+  );
+
   const handleCopy = (text: string, key: string) => {
     void navigator.clipboard.writeText(text);
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(undefined), 2000);
   };
 
+  const handleExportDeliverable = () => {
+    if (!executionResult) return;
+    const out = executionResult.output || executionResult;
+    let content = `# حزمة تسليمات المسار التنفيذي الذاتي (${activePipeline})\n\n`;
+    content += `- **التاريخ**: ${new Date().toLocaleString("ar-EG")}\n`;
+    if (runId) content += `- **معرف التشغيل (Run ID)**: \`${runId}\`\n`;
+    if (executionDuration) content += `- **زمن الاستجابة**: \`${executionDuration}ms\`\n`;
+    content += `- **المحرك**: \`Mastra DAG Engine + Groq LPU Swarm (120B + 27B)\`\n\n---\n\n`;
+
+    if (out.architectureSummary) {
+      content += `## 1. المواصفات المعمارية (Architecture Specification)\n\n${out.architectureSummary}\n\n`;
+    }
+    if (out.sqlSchema || out.completeMigrationSql) {
+      content += `## 2. مخطط قاعدة البيانات وسياسات الأمان (PostgreSQL & Supabase RLS)\n\n\`\`\`sql\n${
+        out.sqlSchema || out.completeMigrationSql
+      }\n\`\`\`\n\n`;
+    }
+    if (out.generatedCode || out.repairedCode) {
+      content += `## 3. الكود البرمجي وعقود الأنواع (Production Code & Zod Contracts)\n\n\`\`\`typescript\n${
+        out.generatedCode || out.repairedCode
+      }\n\`\`\`\n\n`;
+    }
+    if (out.securityReport || out.rootCauseDiagnosis) {
+      content += `## 4. تقرير الأمان وفحص الجودة (Security & QA Gate)\n\n${
+        out.securityReport || out.rootCauseDiagnosis
+      }\n\n`;
+    }
+    if (out.envAuditReport) {
+      content += `## 5. التدقيق البيئي والأمني للنشر (Environment & Secrets Audit)\n\n${out.envAuditReport}\n\n`;
+    }
+    if (out.verificationMatrix) {
+      content += `## 6. مصفوفة التحقق وبوابات الجودة (Verification & Quality Gates)\n\n${out.verificationMatrix}\n\n`;
+    }
+    if (out.releaseNotesMarkdown) {
+      content += `## 7. مذكرة الإصدار التنفيذية (Executive Release Notes)\n\n${out.releaseNotesMarkdown}\n\n`;
+    }
+
+    const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `executive-deliverable-${activePipeline}-${Date.now()}.md`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const handleRunWorkflow = async () => {
     setIsRunning(true);
     setError(undefined);
     setExecutionResult(null);
+    setExecutionDuration(undefined);
+    setRunId(undefined);
 
     let inputData: any = {};
     if (activePipeline === "feature-delivery") {
@@ -117,6 +181,13 @@ export function ExecutiveWorkflowsModal({
         codeSnippet: auditCode,
         issueDescription: auditIssue,
       };
+    } else if (activePipeline === "release-readiness") {
+      inputData = {
+        appName: releaseAppName,
+        targetEnvironment: releaseEnv,
+        releaseScope,
+        criticalIntegrations: releaseIntegrations,
+      };
     }
 
     try {
@@ -135,6 +206,8 @@ export function ExecutiveWorkflowsModal({
       }
 
       setExecutionResult(data.result);
+      setExecutionDuration(data.durationMs);
+      setRunId(data.runId);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "حدث خطأ أثناء تشغيل المسار.");
     } finally {
@@ -149,43 +222,46 @@ export function ExecutiveWorkflowsModal({
     if (activePipeline === "feature-delivery" && executionResult) {
       summaryText = `لقد قمت بتشغيل مسار تسليم الميزة [${featureTitle}] بنجاح عبر Mastra.\nالمعمارية ومخطط قاعدة البيانات والكود جاهزة للاعتماد.`;
     } else if (activePipeline === "database-engineering" && executionResult) {
-      summaryText = `تم تشغيل مسار هندسة قاعدة البيانات لـ [${dbDomain}] بنجاح.\nتم توليد مخطط PostgreSQL وسياسات RLS وفهارس المفاتيح الأجنبية.`;
+      summaryText = `لقد قمت بتشغيل مسار هندسة قاعدة البيانات لـ [${dbDomain}] بنجاح عبر Mastra.\nجداول PostgreSQL ومؤشرات الأداء وسياسات Supabase RLS جاهزة للتطبيق.`;
     } else if (activePipeline === "code-audit-repair" && executionResult) {
-      summaryText = `تم تشغيل مسار التدقيق البرمجي والإصلاح الجراحي لـ [${auditFilePath}].\nتم تحديد السبب الجذري وتوليد رقعة الإصلاح مع أمر التحقق.`;
+      summaryText = `لقد قمت بتشغيل مسار التدقيق البرمجي لملف [${auditFilePath}] بنجاح عبر Mastra.\nتم استئصال السبب الجذري وإعداد رقعة الإصلاح الجراحي وأمر التحقق.`;
+    } else if (activePipeline === "release-readiness" && executionResult) {
+      summaryText = `لقد قمت بتشغيل مسار جاهزية النشر السحابي لـ [${releaseAppName}] بنجاح عبر Mastra.\nتم تدقيق الأمان والبيئة وتأكيد بوابات الجودة وخطة النشر والتراجع.`;
     }
 
-    onSendToChat(summaryText);
-    onClose();
+    if (summaryText) {
+      onSendToChat(summaryText);
+      onClose();
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950/95 text-zinc-100 backdrop-blur-2xl p-6 sm:p-7 shadow-2xl">
-        <DialogHeader className="text-right border-b border-zinc-800/60 pb-4">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto border-zinc-800 bg-zinc-950 text-zinc-100 p-6 shadow-2xl">
+        <DialogHeader className="text-right border-b border-zinc-800/80 pb-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-400 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
-                <CpuIcon className="size-5.5" />
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-9 items-center justify-center rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.15)]">
+                <CpuIcon className="size-5" />
               </div>
-              <div className="flex flex-col text-right">
-                <div className="flex items-center gap-2">
-                  <DialogTitle className="font-bold text-lg text-zinc-100">
-                    لوحة المسارات التنفيذية الحتمية (Mastra Engine)
-                  </DialogTitle>
-                  <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 font-mono text-[10px] text-violet-400 font-semibold">
-                    DAG
-                  </span>
-                </div>
+              <div className="flex flex-col">
+                <DialogTitle className="text-base font-bold text-zinc-100">
+                  لوحة تحكم المسارات التنفيذية الذاتية (Autonomous Studio)
+                </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400">
-                  تشغيل مهام هندسية ذاتية متعددة المراحل عبر Groq LPU ونظام سير العمل الحتمي.
+                  محرك مسارات العمل الحتمية (Mastra DAGs) المدعوم بسرب نماذج Groq LPU فائقة السرعة
                 </DialogDescription>
               </div>
             </div>
+            <span className="rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-violet-400">
+              PHASE 3 ● 2026
+            </span>
           </div>
         </DialogHeader>
 
-        {/* Pipeline Tabs */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 py-2">
+        {/* 4 Pipeline Selectors */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2">
+          {/* 1. Feature Delivery */}
           <button
             type="button"
             onClick={() => {
@@ -193,13 +269,13 @@ export function ExecutiveWorkflowsModal({
               setExecutionResult(null);
             }}
             className={cn(
-              "flex items-center justify-between rounded-xl border p-3 text-right transition-all",
+              "flex items-center justify-between rounded-xl border p-3 text-right transition-all cursor-pointer",
               activePipeline === "feature-delivery"
-                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 shadow-md"
+                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300 shadow-md ring-1 ring-emerald-500/30"
                 : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
             )}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <Code2Icon className="size-4 shrink-0 text-emerald-400" />
               <div className="flex flex-col">
                 <span className="font-semibold text-xs">تسليم الميزات</span>
@@ -211,6 +287,7 @@ export function ExecutiveWorkflowsModal({
             </span>
           </button>
 
+          {/* 2. Database Engineering */}
           <button
             type="button"
             onClick={() => {
@@ -218,16 +295,16 @@ export function ExecutiveWorkflowsModal({
               setExecutionResult(null);
             }}
             className={cn(
-              "flex items-center justify-between rounded-xl border p-3 text-right transition-all",
+              "flex items-center justify-between rounded-xl border p-3 text-right transition-all cursor-pointer",
               activePipeline === "database-engineering"
-                ? "border-blue-500/50 bg-blue-500/10 text-blue-300 shadow-md"
+                ? "border-blue-500/50 bg-blue-500/10 text-blue-300 shadow-md ring-1 ring-blue-500/30"
                 : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
             )}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <DatabaseIcon className="size-4 shrink-0 text-blue-400" />
               <div className="flex flex-col">
-                <span className="font-semibold text-xs">هندسة قواعد البيانات</span>
+                <span className="font-semibold text-xs">هندسة البيانات</span>
                 <span className="text-[10px] text-zinc-500">Supabase & RLS</span>
               </div>
             </div>
@@ -236,6 +313,7 @@ export function ExecutiveWorkflowsModal({
             </span>
           </button>
 
+          {/* 3. Code Audit & Repair */}
           <button
             type="button"
             onClick={() => {
@@ -243,13 +321,13 @@ export function ExecutiveWorkflowsModal({
               setExecutionResult(null);
             }}
             className={cn(
-              "flex items-center justify-between rounded-xl border p-3 text-right transition-all",
+              "flex items-center justify-between rounded-xl border p-3 text-right transition-all cursor-pointer",
               activePipeline === "code-audit-repair"
-                ? "border-amber-500/50 bg-amber-500/10 text-amber-300 shadow-md"
+                ? "border-amber-500/50 bg-amber-500/10 text-amber-300 shadow-md ring-1 ring-amber-500/30"
                 : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
             )}
           >
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <ShieldCheckIcon className="size-4 shrink-0 text-amber-400" />
               <div className="flex flex-col">
                 <span className="font-semibold text-xs">التدقيق والإصلاح</span>
@@ -258,6 +336,32 @@ export function ExecutiveWorkflowsModal({
             </div>
             <span className="text-[10px] font-mono rounded bg-zinc-900/80 px-1.5 py-0.5 border border-zinc-800">
               مرحلتان
+            </span>
+          </button>
+
+          {/* 4. Release Readiness */}
+          <button
+            type="button"
+            onClick={() => {
+              setActivePipeline("release-readiness");
+              setExecutionResult(null);
+            }}
+            className={cn(
+              "flex items-center justify-between rounded-xl border p-3 text-right transition-all cursor-pointer",
+              activePipeline === "release-readiness"
+                ? "border-violet-500/50 bg-violet-500/10 text-violet-300 shadow-md ring-1 ring-violet-500/30"
+                : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <GlobeIcon className="size-4 shrink-0 text-violet-400" />
+              <div className="flex flex-col">
+                <span className="font-semibold text-xs">جاهزية النشر</span>
+                <span className="text-[10px] text-zinc-500">Release Readiness</span>
+              </div>
+            </div>
+            <span className="text-[10px] font-mono rounded bg-zinc-900/80 px-1.5 py-0.5 border border-zinc-800">
+              3 مراحل
             </span>
           </button>
         </div>
@@ -279,7 +383,7 @@ export function ExecutiveWorkflowsModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  المواصفات والمتطلبات التفصيلية (Requirements):
+                  المتطلبات الوظيفية والمعمارية (User Requirements & Journey):
                 </label>
                 <textarea
                   rows={3}
@@ -290,7 +394,7 @@ export function ExecutiveWorkflowsModal({
               </div>
               <div>
                 <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-                  الحزمة التقنية المستهدفة (Target Stack):
+                  حزمة التقنيات المستهدفة (Target Stack):
                 </label>
                 <input
                   type="text"
@@ -390,15 +494,70 @@ export function ExecutiveWorkflowsModal({
             </>
           )}
 
-          <div className="flex items-center justify-between pt-2 border-t border-zinc-800/60">
+          {activePipeline === "release-readiness" && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    اسم التطبيق (App Name):
+                  </label>
+                  <input
+                    type="text"
+                    value={releaseAppName}
+                    onChange={(e) => setReleaseAppName(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-violet-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                    البيئة المستهدفة (Environment):
+                  </label>
+                  <select
+                    value={releaseEnv}
+                    onChange={(e) => setReleaseEnv(e.target.value as any)}
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-violet-500"
+                  >
+                    <option value="production">Production (بيئة الإنتاج الحية)</option>
+                    <option value="staging">Staging (بيئة المعاينة)</option>
+                    <option value="preview">Preview (فرع الاختبار)</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  نطاق التحديثات والميزات (Release Scope):
+                </label>
+                <textarea
+                  rows={2}
+                  value={releaseScope}
+                  onChange={(e) => setReleaseScope(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  الخدمات السحابية والربط الحرج (Critical Connectors):
+                </label>
+                <input
+                  type="text"
+                  value={releaseIntegrations}
+                  onChange={(e) => setReleaseIntegrations(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Action Row */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800/60">
             <div className="flex items-center gap-2 text-[11px] text-zinc-400">
               <ZapIcon className="size-3.5 text-emerald-400" />
-              <span>محرك الاستدلال: Groq LPU Swarm (120B + 27B)</span>
+              <span>سرب الاستدلال: Groq LPU (GPT-OSS-120B + 2× Qwen-27B)</span>
             </div>
             <Button
               disabled={isRunning}
               onClick={handleRunWorkflow}
-              className="gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs px-5 py-2.5 transition-colors shadow-lg"
+              className="gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-xs px-5 py-2.5 transition-colors shadow-lg cursor-pointer"
             >
               {isRunning ? (
                 <>
@@ -408,7 +567,7 @@ export function ExecutiveWorkflowsModal({
               ) : (
                 <>
                   <PlayIcon className="size-3.5 fill-current" />
-                  <span>تشغيل المسار الذاتي الآن</span>
+                  <span>تشغيل المسار الذاتي الآن ⚡</span>
                 </>
               )}
             </Button>
@@ -423,30 +582,62 @@ export function ExecutiveWorkflowsModal({
           </div>
         ) : null}
 
-        {/* Real-time Execution Output Viewer */}
+        {/* Real-time Execution Output Viewer & Telemetry Banner */}
         {executionResult ? (
           <div className="space-y-4 rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-4 text-right">
-            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+            {/* Header & Telemetry */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/60 pb-3">
               <div className="flex items-center gap-2">
                 <CheckCircle2Icon className="size-4 text-emerald-400" />
                 <span className="font-bold text-xs text-zinc-100">
                   تم اكتمال المسار الهندسي بنجاح (Execution Completed)
                 </span>
               </div>
-              {onSendToChat ? (
+
+              <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={handleSendToChat}
-                  className="gap-1.5 rounded-lg border-zinc-700 bg-zinc-800 text-xs text-zinc-200 hover:bg-zinc-700"
+                  onClick={handleExportDeliverable}
+                  className="gap-1.5 rounded-lg border-zinc-700 bg-zinc-800 text-xs text-zinc-200 hover:bg-zinc-700 cursor-pointer"
                 >
-                  <MessageSquareIcon className="size-3.5 text-emerald-400" />
-                  <span>إرسال النتيجة إلى المحادثة</span>
+                  <DownloadIcon className="size-3.5 text-blue-400" />
+                  <span>تصدير الحزمة (Markdown)</span>
                 </Button>
-              ) : null}
+
+                {onSendToChat ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSendToChat}
+                    className="gap-1.5 rounded-lg border-zinc-700 bg-zinc-800 text-xs text-zinc-200 hover:bg-zinc-700 cursor-pointer"
+                  >
+                    <MessageSquareIcon className="size-3.5 text-emerald-400" />
+                    <span>إرسال إلى المحادثة</span>
+                  </Button>
+                ) : null}
+              </div>
             </div>
 
-            {/* Results Display */}
+            {/* Live Telemetry Info Bar */}
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono text-zinc-400 bg-zinc-950/60 p-2.5 rounded-lg border border-zinc-800/50">
+              {executionDuration !== undefined && (
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <TimerIcon className="size-3" />
+                  {executionDuration}ms
+                </span>
+              )}
+              {runId && (
+                <span className="text-zinc-500">
+                  Run ID: <span className="text-zinc-300">{runId.slice(0, 16)}...</span>
+                </span>
+              )}
+              <span className="ms-auto rounded bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-emerald-400">
+                PostgresStore Durable ●
+              </span>
+            </div>
+
+            {/* Results Display Sections */}
             <div className="space-y-3">
               {/* Feature Delivery Results */}
               {executionResult.output?.architectureSummary && (
@@ -559,6 +750,91 @@ export function ExecutiveWorkflowsModal({
                   <pre className="text-xs text-zinc-300 font-sans whitespace-pre-wrap leading-relaxed max-h-36 overflow-y-auto">
                     {executionResult.output.securityReport ||
                       executionResult.output.rootCauseDiagnosis}
+                  </pre>
+                </div>
+              )}
+
+              {/* Release Readiness Results */}
+              {executionResult.output?.envAuditReport && (
+                <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/80 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-xs text-violet-400">
+                      1. التدقيق البيئي والأمني للنشر (Environment & Secrets Audit)
+                    </span>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() =>
+                        handleCopy(executionResult.output.envAuditReport, "envAudit")
+                      }
+                    >
+                      {copiedKey === "envAudit" ? (
+                        <CheckIcon className="size-3 text-emerald-400" />
+                      ) : (
+                        <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="text-xs text-zinc-300 font-sans whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
+                    {executionResult.output.envAuditReport}
+                  </pre>
+                </div>
+              )}
+
+              {executionResult.output?.verificationMatrix && (
+                <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/80 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-xs text-emerald-400">
+                      2. مصفوفة التحقق الصارم وبوابات الجودة (Pre-flight Quality Gates)
+                    </span>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() =>
+                        handleCopy(
+                          executionResult.output.verificationMatrix,
+                          "verification",
+                        )
+                      }
+                    >
+                      {copiedKey === "verification" ? (
+                        <CheckIcon className="size-3 text-emerald-400" />
+                      ) : (
+                        <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="text-xs text-zinc-300 font-sans whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">
+                    {executionResult.output.verificationMatrix}
+                  </pre>
+                </div>
+              )}
+
+              {executionResult.output?.releaseNotesMarkdown && (
+                <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/80 p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-xs text-blue-400">
+                      3. مذكرة الإصدار التنفيذية وخطة التراجع (Executive Release Notes)
+                    </span>
+                    <Button
+                      size="icon-xs"
+                      variant="ghost"
+                      onClick={() =>
+                        handleCopy(
+                          executionResult.output.releaseNotesMarkdown,
+                          "releaseNotes",
+                        )
+                      }
+                    >
+                      {copiedKey === "releaseNotes" ? (
+                        <CheckIcon className="size-3 text-emerald-400" />
+                      ) : (
+                        <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                      )}
+                    </Button>
+                  </div>
+                  <pre className="text-xs text-zinc-300 font-sans whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                    {executionResult.output.releaseNotesMarkdown}
                   </pre>
                 </div>
               )}

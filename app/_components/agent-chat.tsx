@@ -615,6 +615,18 @@ function SidebarContent({
               <span className="text-[10px] font-mono text-zinc-500 group-hover:text-amber-400">تشغيل ⚡</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => onOpenModal?.("release-readiness")}
+              className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2 text-right text-[11px] text-zinc-300 transition-all hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-white cursor-pointer group"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-violet-400 group-hover:scale-110 transition-transform">🌐</span>
+                <span>جاهزية النشر والإصدار</span>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500 group-hover:text-violet-400">تشغيل ⚡</span>
+            </button>
+
             <Button
               size="sm"
               variant="outline"
