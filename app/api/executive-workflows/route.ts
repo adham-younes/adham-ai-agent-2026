@@ -35,6 +35,11 @@ export async function GET(req: Request) {
         name: "التقييم المعماري وسجلات ADRs (Architecture Evaluation & ADRs)",
         steps: 3,
       },
+      {
+        id: "incident-response",
+        name: "الاستجابة للحوادث و SRE (Incident Response & Post-Mortem)",
+        steps: 4,
+      },
     ],
     queriedRunId: runId ?? null,
   });
@@ -58,7 +63,8 @@ export async function POST(req: Request) {
       | "databaseEngineeringWorkflow"
       | "codeAuditAndRepairWorkflow"
       | "releaseDeploymentWorkflow"
-      | "architectureEvaluationWorkflow";
+      | "architectureEvaluationWorkflow"
+      | "incidentResponseWorkflow";
 
     if (
       workflowId === "feature-delivery" ||
@@ -85,10 +91,15 @@ export async function POST(req: Request) {
       workflowId === "architectureEvaluationWorkflow"
     ) {
       workflowKey = "architectureEvaluationWorkflow";
+    } else if (
+      workflowId === "incident-response" ||
+      workflowId === "incidentResponseWorkflow"
+    ) {
+      workflowKey = "incidentResponseWorkflow";
     } else {
       return NextResponse.json(
         {
-          error: `Unknown workflowId: ${workflowId}. Supported: feature-delivery, database-engineering, code-audit-repair, release-readiness, architecture-evaluation`,
+          error: `Unknown workflowId: ${workflowId}. Supported: feature-delivery, database-engineering, code-audit-repair, release-readiness, architecture-evaluation, incident-response`,
         },
         { status: 404 },
       );

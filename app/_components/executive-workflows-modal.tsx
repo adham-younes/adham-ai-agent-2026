@@ -15,6 +15,7 @@ import {
   DatabaseIcon,
   DownloadIcon,
   ExternalLinkIcon,
+  FlameIcon,
   GlobeIcon,
   HistoryIcon,
   Loader2Icon,
@@ -45,7 +46,45 @@ export type WorkflowPipelineType =
   | "database-engineering"
   | "code-audit-repair"
   | "release-readiness"
-  | "architecture-evaluation";
+  | "architecture-evaluation"
+  | "incident-response";
+
+export const PIPELINE_STEPS: Record<
+  WorkflowPipelineType,
+  { nameAr: string; nameEn: string; icon: any }[]
+> = {
+  "feature-delivery": [
+    { nameAr: "المواصفات المعمارية", nameEn: "Architecture Spike", icon: Code2Icon },
+    { nameAr: "مخطط البيانات و RLS", nameEn: "Database Schema", icon: DatabaseIcon },
+    { nameAr: "توليد الكود وعقود Zod", nameEn: "Full-Stack Code", icon: CpuIcon },
+    { nameAr: "بوابة الأمان والجودة", nameEn: "Security & QA Gate", icon: ShieldCheckIcon },
+  ],
+  "database-engineering": [
+    { nameAr: "مخطط PostgreSQL", nameEn: "DDL & Schema", icon: DatabaseIcon },
+    { nameAr: "فهرسة المفاتيح وتحسين الأداء", nameEn: "Index Optimization", icon: ZapIcon },
+    { nameAr: "سياسات RLS وسكريبت الهجرة", nameEn: "RLS & Migration", icon: ShieldCheckIcon },
+  ],
+  "code-audit-repair": [
+    { nameAr: "الفحص الساكن وكشف الثغرات", nameEn: "Static Audit", icon: ShieldAlertIcon },
+    { nameAr: "الإصلاح الجراحي وأمر التحقق", nameEn: "Surgical Repair", icon: CheckCircle2Icon },
+  ],
+  "release-readiness": [
+    { nameAr: "فحص البيئة والمفاتيح", nameEn: "Env & Secrets Audit", icon: ShieldCheckIcon },
+    { nameAr: "بوابات الجودة الصارمة", nameEn: "Quality Gates", icon: CheckCircle2Icon },
+    { nameAr: "خطة النشر ومذكرة الإصدار", nameEn: "Release Plan & Notes", icon: GlobeIcon },
+  ],
+  "architecture-evaluation": [
+    { nameAr: "تحليل المقايضات المعمارية", nameEn: "Trade-offs Spike", icon: ScaleIcon },
+    { nameAr: "توقعات FinOps والأداء", nameEn: "Cost & Latency", icon: TimerIcon },
+    { nameAr: "توليد وثيقة ADR الرسمية", nameEn: "ADR Generator", icon: SparklesIcon },
+  ],
+  "incident-response": [
+    { nameAr: "التصنيف والاحتواء السريع", nameEn: "Emergency Triage", icon: ShieldAlertIcon },
+    { nameAr: "عزل السبب الجذري (RCA)", nameEn: "Root Cause Analysis", icon: CpuIcon },
+    { nameAr: "دليل الإجراءات والتصحيح", nameEn: "Mitigation Runbook", icon: ZapIcon },
+    { nameAr: "مراجعة ما بعد الحادث", nameEn: "Blameless Post-Mortem", icon: SparklesIcon },
+  ],
+};
 
 export interface WorkflowRunRecord {
   readonly id: string;
@@ -167,6 +206,23 @@ export function ExecutiveWorkflowsModal({
     "زمن الاستجابة، التكلفة الشهرية، بساطة الصيانة، وقابلية التوسع الأفقي",
   );
 
+  // Incident Response & SRE Form
+  const [incidentTitle, setIncidentTitle] = useState(
+    "انقطاع خدمة الدفع وتجاوز سعة اتصالات قاعدة البيانات (504 Gateway Timeout & Pool Exhaustion)",
+  );
+  const [incidentLogs, setIncidentLogs] = useState(
+    `Error: connection pool exhausted at SupabaseClient.query (pool.js:84)\nHTTP 504 Gateway Timeout on POST /api/checkout\nActive connections: 100/100, waiting queue: 450 clients (timeout 30000ms)\nat CheckoutService.processOrder (checkout.ts:112:15)`,
+  );
+  const [incidentService, setIncidentService] = useState(
+    "/api/checkout + Supabase PostgreSQL Pool",
+  );
+  const [incidentSeverity, setIncidentSeverity] = useState<
+    "P0 - Critical Outage" | "P1 - High Degradation" | "P2 - Moderate Issue" | "P3 - Low Impact"
+  >("P0 - Critical Outage");
+  const [incidentRecentChanges, setIncidentRecentChanges] = useState(
+    "نشر ميزة الخصومات الموسمية مع زيادة مفاجئة 5x في استدعاءات فحص المخزون بدون Caching",
+  );
+
   const handleCopy = (text: string, key: string) => {
     void navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -217,6 +273,18 @@ export function ExecutiveWorkflowsModal({
     }
     if (out.adrMarkdown) {
       content += `## 10. وثيقة القرار المعماري الرسمي (${out.adrNumber || "ADR"})\n\n${out.adrMarkdown}\n\n`;
+    }
+    if (out.triageReport) {
+      content += `## 11. تقرير التصنيف والاحتواء السريع (Incident Triage & Containment)\n\n${out.triageReport}\n\n`;
+    }
+    if (out.rcaDiagnosis) {
+      content += `## 12. تشخيص السبب الجذري (Root Cause Analysis - RCA)\n\n${out.rcaDiagnosis}\n\n`;
+    }
+    if (out.mitigationRunbook) {
+      content += `## 13. دليل الإجراءات ورقعة الإصلاح الطارئة (Mitigation Runbook & Hotfix)\n\n${out.mitigationRunbook}\n\n`;
+    }
+    if (out.postMortemMarkdown) {
+      content += `## 14. مراجعة ما بعد الحادث (Blameless Post-Mortem)\n\n${out.postMortemMarkdown}\n\n`;
     }
 
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
@@ -275,6 +343,15 @@ export function ExecutiveWorkflowsModal({
         targetCriteria: archCriteria,
       };
       itemTitle = archTitle;
+    } else if (activePipeline === "incident-response") {
+      inputData = {
+        incidentTitle,
+        errorLogs: incidentLogs,
+        affectedService: incidentService,
+        severityLevel: incidentSeverity,
+        recentChanges: incidentRecentChanges,
+      };
+      itemTitle = `${incidentSeverity.split(" ")[0]} - ${incidentTitle}`;
     }
 
     try {
@@ -335,6 +412,8 @@ export function ExecutiveWorkflowsModal({
       summaryText = `لقد قمت بتشغيل مسار جاهزية النشر السحابي لـ [${releaseAppName}] بنجاح عبر Mastra.\nتم تدقيق الأمان والبيئة وتأكيد بوابات الجودة وخطة النشر والتراجع.`;
     } else if (activePipeline === "architecture-evaluation" && executionResult) {
       summaryText = `لقد قمت بتشغيل مسار التقييم المعماري لـ [${archTitle}] بنجاح عبر Mastra.\nتمت المفاضلة وصياغة وثيقة القرار المعماري ADR بنجاح.`;
+    } else if (activePipeline === "incident-response" && executionResult) {
+      summaryText = `لقد قمت بتشغيل مسار الاستجابة للحوادث لـ [${incidentTitle}] بنجاح عبر Mastra.\nتم عزل السبب الجذري، وتوفير دليل الإجراءات، وتوليد وثيقة ما بعد الحادث Blameless Post-Mortem.`;
     }
 
     if (summaryText) {
@@ -357,7 +436,7 @@ export function ExecutiveWorkflowsModal({
                   لوحة تحكم المسارات التنفيذية الذاتية (Autonomous Studio)
                 </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400">
-                  سرب نماذج Groq LPU فائقة السرعة مع محرك المسارات الحتمية (Mastra 5 DAGs)
+                  سرب نماذج Groq LPU فائقة السرعة مع محرك المسارات الحتمية (Mastra 6 DAGs)
                 </DialogDescription>
               </div>
             </div>
@@ -436,6 +515,7 @@ export function ExecutiveWorkflowsModal({
                         {item.pipeline === "code-audit-repair" && <ShieldCheckIcon className="size-4 text-amber-400" />}
                         {item.pipeline === "release-readiness" && <GlobeIcon className="size-4 text-violet-400" />}
                         {item.pipeline === "architecture-evaluation" && <ScaleIcon className="size-4 text-fuchsia-400" />}
+                        {item.pipeline === "incident-response" && <FlameIcon className="size-4 text-rose-400" />}
                       </div>
                       <div className="flex flex-col">
                         <span className="font-semibold text-xs text-zinc-200 line-clamp-1">
@@ -466,8 +546,8 @@ export function ExecutiveWorkflowsModal({
         ) : (
           /* Studio & Runner View */
           <>
-            {/* 5 Pipeline Selectors */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-2">
+            {/* 6 Pipeline Selectors */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2">
               {/* 1. Feature Delivery */}
               <button
                 type="button"
@@ -586,6 +666,30 @@ export function ExecutiveWorkflowsModal({
                 </div>
                 <span className="font-semibold text-xs mt-1">التقييم المعماري</span>
                 <span className="text-[10px] text-zinc-500">Trade-offs & ADR</span>
+              </button>
+
+              {/* 6. Incident Response & SRE */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActivePipeline("incident-response");
+                  setExecutionResult(null);
+                }}
+                className={cn(
+                  "flex flex-col gap-1 rounded-xl border p-2.5 text-right transition-all cursor-pointer",
+                  activePipeline === "incident-response"
+                    ? "border-rose-500/50 bg-rose-500/10 text-rose-300 shadow-md ring-1 ring-rose-500/30"
+                    : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <FlameIcon className="size-4 text-rose-400" />
+                  <span className="text-[9px] font-mono rounded bg-zinc-900/80 px-1 py-0.5 border border-zinc-800">
+                    4 مراحل
+                  </span>
+                </div>
+                <span className="font-semibold text-xs mt-1">طوارئ و SRE</span>
+                <span className="text-[10px] text-zinc-500">Incident & SRE</span>
               </button>
             </div>
 
@@ -820,6 +924,80 @@ export function ExecutiveWorkflowsModal({
                 </>
               )}
 
+              {activePipeline === "incident-response" && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                        عنوان الحادث أو الإنذار التشغيلي (Incident Title):
+                      </label>
+                      <input
+                        type="text"
+                        value={incidentTitle}
+                        onChange={(e) => setIncidentTitle(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-rose-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                        درجة الخطورة (Severity Level):
+                      </label>
+                      <select
+                        value={incidentSeverity}
+                        onChange={(e) =>
+                          setIncidentSeverity(
+                            e.target.value as
+                              | "P0 - Critical Outage"
+                              | "P1 - High Degradation"
+                              | "P2 - Moderate Issue"
+                              | "P3 - Low Impact",
+                          )
+                        }
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-rose-300 focus:outline-none focus:border-rose-500"
+                      >
+                        <option value="P0 - Critical Outage">P0 - انقطاع حرج (Critical Outage)</option>
+                        <option value="P1 - High Degradation">P1 - تدهور شديد (High Degradation)</option>
+                        <option value="P2 - Moderate Issue">P2 - مشكلة متوسطة (Moderate Issue)</option>
+                        <option value="P3 - Low Impact">P3 - أثر محدود (Low Impact)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      الخدمة أو النطاق المتأثر (Impacted Service / Endpoint):
+                    </label>
+                    <input
+                      type="text"
+                      value={incidentService}
+                      onChange={(e) => setIncidentService(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      سجلات الخطأ أو الـ Stack Trace أو استجابة Sentry:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={incidentLogs}
+                      onChange={(e) => setIncidentLogs(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-rose-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      التغييرات أو عمليات النشر الأخيرة (Recent Changes / Triggers):
+                    </label>
+                    <input
+                      type="text"
+                      value={incidentRecentChanges}
+                      onChange={(e) => setIncidentRecentChanges(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                </>
+              )}
+
               {/* Action Row */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-zinc-800/60">
                 <div className="flex items-center gap-2 text-[11px] text-zinc-400">
@@ -845,6 +1023,44 @@ export function ExecutiveWorkflowsModal({
                 </Button>
               </div>
             </div>
+
+            {/* Live DAG Stepper when Running */}
+            {isRunning && (
+              <div className="rounded-xl border border-violet-500/30 bg-violet-950/20 p-4 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2 text-violet-300 font-semibold">
+                    <Loader2Icon className="size-4 animate-spin text-violet-400" />
+                    <span>محرك Mastra ينفّذ مراحل الـ DAG الحتمية عبر سرب معالجات Groq LPU...</span>
+                  </div>
+                  <span className="rounded bg-violet-500/20 border border-violet-500/30 px-2 py-0.5 font-mono text-[10px] text-violet-300">
+                    Live DAG Execution
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1">
+                  {PIPELINE_STEPS[activePipeline]?.map((step, idx) => {
+                    const StepIcon = step.icon;
+                    return (
+                      <div
+                        key={step.nameEn}
+                        className="flex items-center gap-2.5 rounded-lg border border-violet-500/20 bg-zinc-950/70 p-2.5 text-right"
+                      >
+                        <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
+                          <StepIcon className="size-3.5" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-medium text-zinc-200 truncate">
+                            {idx + 1}. {step.nameAr}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 font-mono truncate">
+                            {step.nameEn}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Error Alert */}
             {error ? (
@@ -1197,6 +1413,133 @@ export function ExecutiveWorkflowsModal({
                       </div>
                       <pre className="text-xs text-zinc-200 font-sans whitespace-pre-wrap leading-relaxed max-h-56 overflow-y-auto">
                         {executionResult.output.adrMarkdown}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Incident Response & SRE Results */}
+                  {executionResult.output?.triageReport && (
+                    <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-rose-300">
+                            1. تقرير التصنيف والاحتواء السريع (Incident Triage)
+                          </span>
+                          <span className="rounded border border-rose-500/40 bg-rose-500/20 px-1.5 py-0.5 text-[9px] font-mono text-rose-300">
+                            {executionResult.output.severityLevel || "P0"} ●
+                          </span>
+                        </div>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() =>
+                            handleCopy(
+                              executionResult.output.triageReport,
+                              "triage",
+                            )
+                          }
+                        >
+                          {copiedKey === "triage" ? (
+                            <CheckIcon className="size-3 text-emerald-400" />
+                          ) : (
+                            <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                          )}
+                        </Button>
+                      </div>
+                      <pre className="text-xs text-zinc-200 font-sans whitespace-pre-wrap leading-relaxed max-h-44 overflow-y-auto">
+                        {executionResult.output.triageReport}
+                      </pre>
+                    </div>
+                  )}
+
+                  {executionResult.output?.rcaDiagnosis && (
+                    <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/80 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-xs text-amber-400">
+                          2. تشخيص السبب الجذري وآلية الفشل (Root Cause Analysis - RCA)
+                        </span>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() =>
+                            handleCopy(
+                              executionResult.output.rcaDiagnosis,
+                              "rca",
+                            )
+                          }
+                        >
+                          {copiedKey === "rca" ? (
+                            <CheckIcon className="size-3 text-emerald-400" />
+                          ) : (
+                            <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                          )}
+                        </Button>
+                      </div>
+                      <pre className="text-xs text-zinc-300 font-sans whitespace-pre-wrap leading-relaxed max-h-44 overflow-y-auto">
+                        {executionResult.output.rcaDiagnosis}
+                      </pre>
+                    </div>
+                  )}
+
+                  {executionResult.output?.mitigationRunbook && (
+                    <div className="rounded-lg border border-zinc-800/60 bg-zinc-950/80 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-xs text-emerald-400">
+                          3. دليل الإجراءات ورقعة الإصلاح الطارئة (Mitigation Runbook & Hotfix)
+                        </span>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() =>
+                            handleCopy(
+                              executionResult.output.mitigationRunbook,
+                              "runbook",
+                            )
+                          }
+                        >
+                          {copiedKey === "runbook" ? (
+                            <CheckIcon className="size-3 text-emerald-400" />
+                          ) : (
+                            <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                          )}
+                        </Button>
+                      </div>
+                      <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap leading-relaxed max-h-44 overflow-y-auto">
+                        {executionResult.output.mitigationRunbook}
+                      </pre>
+                    </div>
+                  )}
+
+                  {executionResult.output?.postMortemMarkdown && (
+                    <div className="rounded-lg border border-rose-500/40 bg-zinc-950/90 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-rose-300">
+                            4. مراجعة ما بعد الحادث غير اللائمة (Blameless Post-Mortem)
+                          </span>
+                          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-mono text-emerald-300">
+                            PUBLISHED ●
+                          </span>
+                        </div>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() =>
+                            handleCopy(
+                              executionResult.output.postMortemMarkdown,
+                              "postMortem",
+                            )
+                          }
+                        >
+                          {copiedKey === "postMortem" ? (
+                            <CheckIcon className="size-3 text-emerald-400" />
+                          ) : (
+                            <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                          )}
+                        </Button>
+                      </div>
+                      <pre className="text-xs text-zinc-200 font-sans whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                        {executionResult.output.postMortemMarkdown}
                       </pre>
                     </div>
                   )}
