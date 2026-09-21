@@ -8,13 +8,19 @@ import { LearnedRule } from "../../continual-learning/types";
 export const ContinualLearningInputSchema = z.object({
   episodeTask: z
     .string()
+    .optional()
     .describe("المهمة التشغيلية أو الحادثة السابقة المراد استيعابها والتعلم منها"),
+  task: z.string().optional(),
   episodeDomain: z
     .string()
+    .optional()
     .describe("المجال الهندسي والصناعي، مثل: B2B E-Commerce، توربينات الرياح، الرعاية الصحية"),
+  domain: z.string().optional(),
   episodeEnvironment: z
     .string()
+    .optional()
     .describe("البيئة التقنية، مثل: Next.js 16 + Supabase PostgreSQL + Vercel Edge"),
+  environment: z.string().optional(),
   decisionTaken: z
     .string()
     .describe("القرار أو الإجراء الذي اتخذه الوكيل سابقاً"),
@@ -69,9 +75,14 @@ export const episodeIngestionStep = createStep({
   outputSchema: EpisodeIngestionOutputSchema,
   execute: async ({ inputData }) => {
     const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const episodeTask = inputData.episodeTask || inputData.task || "المهمة الهندسية المسجلة";
+    const episodeDomain = inputData.episodeDomain || inputData.domain || "backend-database";
+    const episodeEnvironment = inputData.episodeEnvironment || inputData.environment || "production";
+    const targetNewContext = inputData.targetNewContext || "تطبيق نفس القاعدة على منصة مزادات حية عالية السرعة";
+
     const prompt = `أنت مهندس التعلم المستمر والتقييم النظمي (Continual Learning & Evaluation Engineer).
 قم بتحليل التجربة الميدانية السابقة وفق الهيكل الرباعي للدكتورة مريم ميرادي:
-[السياق - Context]: المهمة: ${inputData.episodeTask} | المجال: ${inputData.episodeDomain} | البيئة: ${inputData.episodeEnvironment}
+[السياق - Context]: المهمة: ${episodeTask} | المجال: ${episodeDomain} | البيئة: ${episodeEnvironment}
 [القرار - Decision]: ${inputData.decisionTaken}
 [الواقع الميداني - Reality]: ${inputData.observedReality}
 
@@ -93,12 +104,12 @@ export const episodeIngestionStep = createStep({
       inputData.observedReality.includes("خطأ");
 
     return {
-      episodeTask: inputData.episodeTask,
-      episodeDomain: inputData.episodeDomain,
-      episodeEnvironment: inputData.episodeEnvironment,
+      episodeTask,
+      episodeDomain,
+      episodeEnvironment,
       decisionTaken: inputData.decisionTaken,
       observedReality: inputData.observedReality,
-      targetNewContext: inputData.targetNewContext,
+      targetNewContext,
       episodeAnalysisReport: text,
       outcomeScore: isFailure ? -0.85 : 0.95,
     };

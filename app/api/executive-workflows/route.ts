@@ -116,9 +116,21 @@ export async function POST(req: Request) {
       );
     }
 
+    let workflowInput = inputData;
+    if (workflowKey === "continualLearningWorkflow") {
+      workflowInput = {
+        episodeTask: inputData.episodeTask || inputData.task || "استيعاب واقعة هندسية في الذاكرة العرضية",
+        episodeDomain: inputData.episodeDomain || inputData.domain || "backend-database",
+        episodeEnvironment: inputData.episodeEnvironment || inputData.environment || "production",
+        decisionTaken: inputData.decisionTaken || "تطبيق إجراء هندسي مدروس",
+        observedReality: inputData.observedReality || "تحسن الأداء واستقرار النظام",
+        targetNewContext: inputData.targetNewContext || "production serverless high-load checkout",
+      };
+    }
+
     const workflow = mastra.getWorkflow(workflowKey);
     const run = await workflow.createRun();
-    const result = await run.start({ inputData });
+    const result = await run.start({ inputData: workflowInput });
     const durationMs = Math.round(performance.now() - startTime);
 
     return NextResponse.json({
