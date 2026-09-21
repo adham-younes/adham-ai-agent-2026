@@ -523,6 +523,39 @@ function SidebarContent({ activeSessionId }: { readonly activeSessionId?: string
           </div>
         </div>
 
+        {/* Mastra Autonomous Engineering Pipelines */}
+        <div className="flex flex-col gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-xs text-zinc-200">المسارات التنفيذية الذاتية (Mastra)</span>
+            <span className="rounded border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono font-medium text-violet-400">
+              DAG
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-2.5 py-1.5 text-[11px] text-zinc-300">
+              <div className="flex items-center gap-1.5">
+                <span className="text-emerald-400">🚀</span>
+                <span>تسليم الميزات الكاملة</span>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500">4 مراحل</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-2.5 py-1.5 text-[11px] text-zinc-300">
+              <div className="flex items-center gap-1.5">
+                <span className="text-blue-400">🗄️</span>
+                <span>هندسة قواعد البيانات</span>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500">Supabase</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-2.5 py-1.5 text-[11px] text-zinc-300">
+              <div className="flex items-center gap-1.5">
+                <span className="text-amber-400">🛡️</span>
+                <span>التدقيق والإصلاح الذاتي</span>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500">Patch</span>
+            </div>
+          </div>
+        </div>
+
         {/* Connected Cloud Services */}
         <div className="flex flex-col gap-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3">
           <span className="font-semibold text-xs text-zinc-200">الربط السحابي (Cloud Connectors)</span>
