@@ -17,6 +17,7 @@ import {
   MenuIcon,
   PanelLeftCloseIcon,
   PanelLeftIcon,
+  PlayIcon,
   PlusIcon,
   SendIcon,
   ServerIcon,
@@ -47,6 +48,10 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AgentMessage } from "./agent-message";
+import {
+  ExecutiveWorkflowsModal,
+  type WorkflowPipelineType,
+} from "./executive-workflows-modal";
 
 const AGENT_NAME = "adham-ai-agent-2026";
 
@@ -114,6 +119,14 @@ export function AgentChat({
   const [hasInputText, setHasInputText] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPipeline, setSelectedPipeline] =
+    useState<WorkflowPipelineType>("feature-delivery");
+
+  const handleOpenWorkflowModal = (pipeline: WorkflowPipelineType) => {
+    setSelectedPipeline(pipeline);
+    setIsModalOpen(true);
+  };
 
   const agent = useEveAgent({
     initialSession:
@@ -235,7 +248,10 @@ export function AgentChat({
           isSidebarOpen ? "w-72 lg:w-80" : "w-0 overflow-hidden border-none",
         )}
       >
-        <SidebarContent activeSessionId={activeSessionId} />
+        <SidebarContent
+          activeSessionId={activeSessionId}
+          onOpenModal={handleOpenWorkflowModal}
+        />
       </aside>
 
       {/* Mobile Slide-over Drawer */}
@@ -258,7 +274,10 @@ export function AgentChat({
                 <XIcon className="size-4" />
               </Button>
             </div>
-            <SidebarContent activeSessionId={activeSessionId} />
+            <SidebarContent
+              activeSessionId={activeSessionId}
+              onOpenModal={handleOpenWorkflowModal}
+            />
           </div>
         </div>
       ) : null}
@@ -292,14 +311,26 @@ export function AgentChat({
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            <Button
+              aria-label="مسارات Mastra التنفيذية"
+              className="gap-1.5 rounded-lg border border-violet-500/40 bg-violet-500/10 text-xs font-medium text-violet-300 hover:bg-violet-500/20 hover:text-white"
+              onClick={() => handleOpenWorkflowModal("feature-delivery")}
+              size="sm"
+              variant="outline"
+            >
+              <ZapIcon className="size-3.5 text-violet-400" />
+              <span className="hidden sm:inline">مسارات Mastra الذاتية</span>
+              <span className="sm:hidden">Mastra ⚡</span>
+            </Button>
+
             <div className="flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-1 text-xs text-zinc-300">
               <span className="relative flex size-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
               </span>
-              <span className="hidden font-medium text-[11px] sm:inline">Groq LPU ⚡ 120B + 2×27B Swarm</span>
-              <span className="font-medium text-[11px] sm:hidden">Groq Swarm ⚡</span>
+              <span className="hidden font-medium text-[11px] lg:inline">Groq LPU ⚡ 120B + 2×27B Swarm</span>
+              <span className="font-medium text-[11px] lg:hidden">Groq Swarm ⚡</span>
             </div>
 
             <Button
@@ -432,11 +463,27 @@ export function AgentChat({
           {composer}
         </div>
       </main>
+
+      <ExecutiveWorkflowsModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        initialPipeline={selectedPipeline}
+        onSendToChat={(text) => {
+          setCancellationError(undefined);
+          void agent.send(text);
+        }}
+      />
     </div>
   );
 }
 
-function SidebarContent({ activeSessionId }: { readonly activeSessionId?: string }) {
+function SidebarContent({
+  activeSessionId,
+  onOpenModal,
+}: {
+  readonly activeSessionId?: string;
+  readonly onOpenModal?: (pipeline: WorkflowPipelineType) => void;
+}) {
   return (
     <div className="flex h-full flex-col justify-between overflow-y-auto p-4 text-right">
       <div className="flex flex-col gap-6">
@@ -532,27 +579,50 @@ function SidebarContent({ activeSessionId }: { readonly activeSessionId?: string
             </span>
           </div>
           <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-2.5 py-1.5 text-[11px] text-zinc-300">
+            <button
+              type="button"
+              onClick={() => onOpenModal?.("feature-delivery")}
+              className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2 text-right text-[11px] text-zinc-300 transition-all hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-white cursor-pointer group"
+            >
               <div className="flex items-center gap-1.5">
-                <span className="text-emerald-400">🚀</span>
+                <span className="text-emerald-400 group-hover:scale-110 transition-transform">🚀</span>
                 <span>تسليم الميزات الكاملة</span>
               </div>
-              <span className="text-[10px] font-mono text-zinc-500">4 مراحل</span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-2.5 py-1.5 text-[11px] text-zinc-300">
+              <span className="text-[10px] font-mono text-zinc-500 group-hover:text-emerald-400">تشغيل ⚡</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenModal?.("database-engineering")}
+              className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2 text-right text-[11px] text-zinc-300 transition-all hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-white cursor-pointer group"
+            >
               <div className="flex items-center gap-1.5">
-                <span className="text-blue-400">🗄️</span>
+                <span className="text-blue-400 group-hover:scale-110 transition-transform">🗄️</span>
                 <span>هندسة قواعد البيانات</span>
               </div>
-              <span className="text-[10px] font-mono text-zinc-500">Supabase</span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-zinc-800/50 bg-zinc-950/40 px-2.5 py-1.5 text-[11px] text-zinc-300">
+              <span className="text-[10px] font-mono text-zinc-500 group-hover:text-blue-400">تشغيل ⚡</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onOpenModal?.("code-audit-repair")}
+              className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2 text-right text-[11px] text-zinc-300 transition-all hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-white cursor-pointer group"
+            >
               <div className="flex items-center gap-1.5">
-                <span className="text-amber-400">🛡️</span>
+                <span className="text-amber-400 group-hover:scale-110 transition-transform">🛡️</span>
                 <span>التدقيق والإصلاح الذاتي</span>
               </div>
-              <span className="text-[10px] font-mono text-zinc-500">Patch</span>
-            </div>
+              <span className="text-[10px] font-mono text-zinc-500 group-hover:text-amber-400">تشغيل ⚡</span>
+            </button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-1 w-full text-xs font-medium border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:text-white"
+              onClick={() => onOpenModal?.("feature-delivery")}
+            >
+              لوحة تحكم Mastra التنفيذية ⚡
+            </Button>
           </div>
         </div>
 
