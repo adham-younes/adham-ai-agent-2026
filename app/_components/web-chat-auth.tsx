@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOutIcon } from "lucide-react";
+import { BotIcon, CpuIcon, LogOutIcon, ShieldCheckIcon, ZapIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,43 +28,68 @@ export function SignIn() {
       });
       if (!result.error) return;
       setPending(false);
-      setError("Sign-in failed. Try again.");
+      setError("فشل تسجيل الدخول. يرجى المحاولة مجددًا.");
     } catch {
       setPending(false);
-      setError("Sign-in failed. Try again.");
+      setError("فشل تسجيل الدخول. يرجى المحاولة مجددًا.");
     }
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-background px-8 text-foreground">
-      <div className="flex w-full max-w-[22rem] flex-col gap-5">
-        <div className="text-foreground opacity-[0.08] dark:opacity-[0.12]">
-          <EveWordmark className="h-auto w-[4.875rem]" />
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4 text-foreground">
+      <div className="relative flex w-full max-w-sm flex-col items-center rounded-2xl border border-zinc-800/80 bg-zinc-950/80 p-8 text-center shadow-2xl backdrop-blur-xl">
+        {/* Glow effect */}
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 size-32 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+
+        {/* Logo */}
+        <div className="relative mb-5 flex size-14 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+          <CpuIcon className="size-7" />
+          <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-zinc-950 border border-emerald-500/40 text-[9px] font-bold text-emerald-400">
+            ⚡
+          </span>
         </div>
-        <section aria-label="Sign in" className="flex flex-col gap-2">
-          <h1 className="max-w-full break-words font-medium text-sm leading-6">{AGENT_NAME}</h1>
-          <p className="flex flex-wrap items-center gap-2 text-muted-foreground text-sm leading-6">
-            <span className="inline-flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-              Ready
+
+        {/* Title & Status */}
+        <div className="flex flex-col gap-1.5 mb-6">
+          <div className="flex items-center justify-center gap-2">
+            <h1 className="font-bold text-xl tracking-tight text-zinc-100">adham.ai</h1>
+            <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
+              EXECUTIVE
             </span>
-            <span aria-hidden="true" className="text-border">
-              /
+          </div>
+          <p className="text-xs text-zinc-400">منظومة الوكلاء الذكية متعددة النماذج (120B + 2×27B)</p>
+          <div className="mt-2 inline-flex items-center justify-center gap-2 self-center rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-1 text-xs text-zinc-300">
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
-            <span>Sign in to start a session</span>
+            <span className="text-[11px] font-medium">Groq LPU جاهز للعمل</span>
+          </div>
+        </div>
+
+        {/* Sign In Button */}
+        <Button
+          className="w-full gap-2.5 rounded-xl bg-zinc-100 font-medium text-sm text-zinc-950 hover:bg-zinc-200 transition-colors py-5"
+          disabled={pending}
+          onClick={signIn}
+        >
+          <svg aria-hidden="true" className="size-3.5 fill-current" viewBox="0 0 24 20">
+            <path d="M12 0 24 20H0L12 0Z" />
+          </svg>
+          <span>{pending ? "جاري التحويل..." : "الدخول عبر Vercel"}</span>
+        </Button>
+
+        {error ? (
+          <p className="mt-3 text-xs text-destructive" role="alert">
+            {error}
           </p>
-          <Button className="mt-3 w-full gap-2 text-sm" disabled={pending} onClick={signIn}>
-            <svg aria-hidden="true" className="size-3 fill-current" viewBox="0 0 24 20">
-              <path d="M12 0 24 20H0L12 0Z" />
-            </svg>
-            <span className="leading-5">{pending ? "Redirecting…" : "Continue with Vercel"}</span>
-          </Button>
-          {error ? (
-            <p className="text-destructive text-sm" role="alert">
-              {error}
-            </p>
-          ) : null}
-        </section>
+        ) : null}
+
+        {/* Security badge */}
+        <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-zinc-500">
+          <ShieldCheckIcon className="size-3.5 text-emerald-500" />
+          <span>جلسة عمل مشفرة ومؤمنة بالكامل</span>
+        </div>
       </div>
     </main>
   );

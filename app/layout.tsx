@@ -20,12 +20,12 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "adham | الوكيل التنفيذي الذكي",
-  description: "وكيل عربي تنفيذي للبحث والتحليل وبناء الحلول وتنفيذها.",
+  title: "adham.ai | منظومة الوكلاء التنفيذية الذكية",
+  description: "منظومة ذكاء اصطناعي متعددة الوكلاء (120B + 2×27B) للبرمجة، إدارة قواعد البيانات، والنشر السحابي مدعومة بمعالجات Groq LPU.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#080b12",
+  themeColor: "#09090b",
 };
 
 // The page and Eve routes validate the generated app's Better Auth session.
