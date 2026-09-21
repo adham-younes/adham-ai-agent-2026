@@ -40,6 +40,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { SEED_LEARNED_RULES } from "@/lib/continual-learning/rules-store";
+import { evaluateContextGate } from "@/lib/continual-learning/context-gate";
+import type { ContextGateDecision, LearnedRule } from "@/lib/continual-learning/types";
 
 export type WorkflowPipelineType =
   | "feature-delivery"
@@ -47,7 +50,8 @@ export type WorkflowPipelineType =
   | "code-audit-repair"
   | "release-readiness"
   | "architecture-evaluation"
-  | "incident-response";
+  | "incident-response"
+  | "continual-learning";
 
 export const PIPELINE_STEPS: Record<
   WorkflowPipelineType,
@@ -84,6 +88,11 @@ export const PIPELINE_STEPS: Record<
     { nameAr: "دليل الإجراءات والتصحيح", nameEn: "Mitigation Runbook", icon: ZapIcon },
     { nameAr: "مراجعة ما بعد الحادث", nameEn: "Blameless Post-Mortem", icon: SparklesIcon },
   ],
+  "continual-learning": [
+    { nameAr: "استيعاب السجل العرضي (120B)", nameEn: "Episode Ingestion", icon: CpuIcon },
+    { nameAr: "استخلاص القاعدة الإرشادية (27B)", nameEn: "Heuristic Extraction", icon: SparklesIcon },
+    { nameAr: "تقييم بوابة السياق (120B)", nameEn: "Context Gate & Boundary", icon: ShieldCheckIcon },
+  ],
 };
 
 export interface WorkflowRunRecord {
@@ -111,7 +120,7 @@ export function ExecutiveWorkflowsModal({
   initialPipeline = "feature-delivery",
   onSendToChat,
 }: ExecutiveWorkflowsModalProps) {
-  const [activeTab, setActiveTab] = useState<"studio" | "history">("studio");
+  const [activeTab, setActiveTab] = useState<"studio" | "history" | "gating">("studio");
   const [activePipeline, setActivePipeline] =
     useState<WorkflowPipelineType>(initialPipeline);
   const [isRunning, setIsRunning] = useState(false);
@@ -223,6 +232,31 @@ export function ExecutiveWorkflowsModal({
     "نشر ميزة الخصومات الموسمية مع زيادة مفاجئة 5x في استدعاءات فحص المخزون بدون Caching",
   );
 
+  // Continual Learning Form (Phase 6)
+  const [episodeTask, setEpisodeTask] = useState(
+    "استيعاب واقعة تسريب اتصالات قاعدة البيانات وتوليد قاعدة إرشادية آمنة مع بوابات السياق",
+  );
+  const [episodeDomain, setEpisodeDomain] = useState("backend-database");
+  const [episodeEnvironment, setEpisodeEnvironment] = useState("production");
+  const [decisionTaken, setDecisionTaken] = useState(
+    "استخدام PgBouncer Transaction Pooling وتفعيل مهلة خمول 10 ثوانٍ مع فرض الفهرسة على جميع المفاتيح الأجنبية.",
+  );
+  const [observedReality, setObservedReality] = useState(
+    "انخفاض استهلاك الاتصالات بنسبة 82% واستقرار زمن استجابة p95 عند 45ms بدون حدوث أخطاء 504 Gateway Timeout.",
+  );
+  const [targetNewContext, setTargetNewContext] = useState(
+    "بيئة إنتاج production لتطبيق متجر تجزئة يعاني من ضغط طلبات checkout مع قاعدة بيانات Supabase PostgreSQL",
+  );
+
+  // Gating Simulator State (for the Gating Studio Tab)
+  const [simulatorRuleId, setSimulatorRuleId] = useState<string>(
+    SEED_LEARNED_RULES[0]?.id || "rule-sre-db-pool-01",
+  );
+  const [simulatorContextText, setSimulatorContextText] = useState<string>(
+    "production serverless application with high-load checkout traffic querying postgresql pool on supabase",
+  );
+  const [simulatorResult, setSimulatorResult] = useState<ContextGateDecision | null>(null);
+
   const handleCopy = (text: string, key: string) => {
     void navigator.clipboard.writeText(text);
     setCopiedKey(key);
@@ -285,6 +319,15 @@ export function ExecutiveWorkflowsModal({
     }
     if (out.postMortemMarkdown) {
       content += `## 14. مراجعة ما بعد الحادث (Blameless Post-Mortem)\n\n${out.postMortemMarkdown}\n\n`;
+    }
+    if (out.episodeId) {
+      content += `## 15. استيعاب السجل العرضي (Episodic Memory Ingestion)\n\n- **Episode ID**: \`${out.episodeId}\`\n- **Vector ID**: \`${out.vectorId || "N/A"}\`\n- **المهمة**: ${out.task || "N/A"}\n\n`;
+    }
+    if (out.learnedRule) {
+      content += `## 16. القاعدة الإرشادية المستخلصة (Learned Heuristic Rule)\n\n- **Rule ID**: \`${out.learnedRule.ruleId}\`\n- **الشرط**: ${out.learnedRule.condition}\n- **الإجراء**: ${out.learnedRule.action}\n- **حدود الصلاحية (Validity Boundary)**: ${out.learnedRule.validityBoundary}\n- **السياقات المحظورة (Prohibited Contexts)**: ${out.learnedRule.prohibitedContexts}\n- **درجة الثقة**: ${out.learnedRule.confidenceScore}\n\n`;
+    }
+    if (out.contextGateDecision) {
+      content += `## 17. تقييم بوابة السياق (Context Gate Evaluation)\n\n- **حالة البوابة**: \`${out.contextGateDecision.status}\`\n- **درجة التشابه**: \`${out.contextGateDecision.similarityScore}\` (العتبة: \`${out.contextGateDecision.threshold}\`)\n- **هل تم اعتماد النقل**: ${out.contextGateDecision.isApproved ? "نعم ✅" : "لا ⛔"}\n- **التعليل الهندسي**: ${out.contextGateDecision.reasoning}\n\n`;
     }
 
     const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
@@ -352,6 +395,16 @@ export function ExecutiveWorkflowsModal({
         recentChanges: incidentRecentChanges,
       };
       itemTitle = `${incidentSeverity.split(" ")[0]} - ${incidentTitle}`;
+    } else if (activePipeline === "continual-learning") {
+      inputData = {
+        task: episodeTask,
+        domain: episodeDomain,
+        environment: episodeEnvironment,
+        decisionTaken,
+        observedReality,
+        targetNewContext,
+      };
+      itemTitle = episodeTask;
     }
 
     try {
@@ -414,6 +467,8 @@ export function ExecutiveWorkflowsModal({
       summaryText = `لقد قمت بتشغيل مسار التقييم المعماري لـ [${archTitle}] بنجاح عبر Mastra.\nتمت المفاضلة وصياغة وثيقة القرار المعماري ADR بنجاح.`;
     } else if (activePipeline === "incident-response" && executionResult) {
       summaryText = `لقد قمت بتشغيل مسار الاستجابة للحوادث لـ [${incidentTitle}] بنجاح عبر Mastra.\nتم عزل السبب الجذري، وتوفير دليل الإجراءات، وتوليد وثيقة ما بعد الحادث Blameless Post-Mortem.`;
+    } else if (activePipeline === "continual-learning" && executionResult) {
+      summaryText = `لقد قمت بتشغيل مسار التعلم العرضي وبوابات السياق لـ [${episodeTask}] بنجاح عبر Mastra.\nتم تسجيل الواقعة في الذاكرة العرضية، واستخلاص القاعدة الإرشادية، وحساب بوابة السياق لمنع النقل السلبي.`;
     }
 
     if (summaryText) {
@@ -436,12 +491,12 @@ export function ExecutiveWorkflowsModal({
                   لوحة تحكم المسارات التنفيذية الذاتية (Autonomous Studio)
                 </DialogTitle>
                 <DialogDescription className="text-xs text-zinc-400">
-                  سرب نماذج Groq LPU فائقة السرعة مع محرك المسارات الحتمية (Mastra 6 DAGs)
+                  سرب نماذج Groq LPU فائقة السرعة مع محرك المسارات الحتمية (Mastra 7 DAGs)
                 </DialogDescription>
               </div>
             </div>
 
-            {/* Mode Switch: Studio vs History */}
+            {/* Mode Switch: Studio vs History vs Gating */}
             <div className="flex items-center gap-1 rounded-xl border border-zinc-800 bg-zinc-900/90 p-1 text-xs">
               <button
                 type="button"
@@ -468,6 +523,19 @@ export function ExecutiveWorkflowsModal({
               >
                 <HistoryIcon className="size-3.5" />
                 <span>سجل التشغيلات ({runHistory.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("gating")}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3 py-1 font-medium transition-colors cursor-pointer",
+                  activeTab === "gating"
+                    ? "bg-cyan-600 text-white shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200",
+                )}
+              >
+                <ShieldCheckIcon className="size-3.5 text-cyan-300" />
+                <span>بوابات السياق والتعلم</span>
               </button>
             </div>
           </div>
@@ -516,6 +584,7 @@ export function ExecutiveWorkflowsModal({
                         {item.pipeline === "release-readiness" && <GlobeIcon className="size-4 text-violet-400" />}
                         {item.pipeline === "architecture-evaluation" && <ScaleIcon className="size-4 text-fuchsia-400" />}
                         {item.pipeline === "incident-response" && <FlameIcon className="size-4 text-rose-400" />}
+                        {item.pipeline === "continual-learning" && <CpuIcon className="size-4 text-cyan-400" />}
                       </div>
                       <div className="flex flex-col">
                         <span className="font-semibold text-xs text-zinc-200 line-clamp-1">
@@ -543,11 +612,297 @@ export function ExecutiveWorkflowsModal({
               </div>
             )}
           </div>
+        ) : activeTab === "gating" ? (
+          /* Gating & Continual Learning Studio Tab */
+          <div className="space-y-6 pt-2 text-right">
+            {/* Architecture Overview Banner */}
+            <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 via-zinc-950/80 to-violet-950/30 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-500/20 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex size-8 items-center justify-center rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 shadow-[0_0_15px_rgba(6,182,212,0.2)]">
+                    <CpuIcon className="size-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-zinc-100">
+                      محرك الذاكرة العرضية وبوابات السياق (Episodic Memory & Context Gating)
+                    </h3>
+                    <p className="text-[11px] text-cyan-300/80">
+                      معمارية د. مريم ميرادي للمؤسسات · الطبقة 9 (الذاكرة العرضية) والطبقة 10 (التعلم المستمر ومنع النقل السلبي)
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-mono font-semibold text-cyan-300">
+                  Similarity Gate ≥ 0.75
+                </span>
+              </div>
+
+              <div className="text-xs text-zinc-300 leading-relaxed space-y-2">
+                <p>
+                  تمنع هذه المنظومة الرياضية ظاهرة <strong className="text-rose-400">النقل السلبي (Negative Transfer)</strong> الكارثية؛ حيث يُحظر على الوكيل تطبيق حل أو قاعدة نجحت سابقاً في سياق معين إذا لم يتجاوز تشابه السياق الجديد عتبة القبول الحتمية (<span className="text-cyan-300 font-mono">τ ≥ 0.75</span>) أو إذا تطابق مع أي سياق محظور مصرح به.
+                </p>
+                <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-2.5 font-mono text-[11px] text-zinc-300 flex items-center justify-between">
+                  <span>شرط العبور الرياضي:</span>
+                  <span className="text-cyan-300 font-bold">
+                    Trigger(Rule) ⟺ Similarity(C_new, Boundary) ≥ 0.75 ∧ C_new ∩ Prohibited = ∅
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Interactive Context Gate Simulator */}
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <SparklesIcon className="size-4 text-cyan-400" />
+                  <span className="font-bold text-xs text-zinc-200">
+                    محاكي بوابة السياق في الوقت الفعلي (Live Context Gate Simulator)
+                  </span>
+                </div>
+                <span className="text-[10px] text-zinc-500 font-mono">Client-Side Zero-Latency</span>
+              </div>
+
+              {/* Rule Selector */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  اختر القاعدة الإرشادية من الذاكرة العرضية (Select Learned Rule):
+                </label>
+                <select
+                  value={simulatorRuleId}
+                  onChange={(e) => {
+                    setSimulatorRuleId(e.target.value);
+                    setSimulatorResult(null);
+                  }}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:border-cyan-500"
+                >
+                  {SEED_LEARNED_RULES.map((rule) => (
+                    <option key={rule.id} value={rule.id}>
+                      [{rule.id}] {rule.title.slice(0, 85)}...
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Active Rule Details Banner */}
+              {(() => {
+                const currentRule =
+                  SEED_LEARNED_RULES.find((r) => r.id === simulatorRuleId) ||
+                  SEED_LEARNED_RULES[0];
+                return (
+                  <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/70 p-3 text-xs space-y-2">
+                    <p className="font-semibold text-zinc-200 text-xs">{currentRule.title}</p>
+                    <p className="text-zinc-400 text-[11px] leading-relaxed">{currentRule.lessonLearned}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
+                      <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/20 p-2">
+                        <span className="text-emerald-400 font-semibold block mb-1">
+                          ✅ حدود الصلاحية (Validity Boundary):
+                        </span>
+                        <span className="text-zinc-300 leading-normal">{currentRule.validityBoundary}</span>
+                      </div>
+                      <div className="rounded-lg border border-rose-500/20 bg-rose-950/20 p-2">
+                        <span className="text-rose-400 font-semibold block mb-1">
+                          ⛔ سياقات محظورة (Prohibited Contexts):
+                        </span>
+                        <span className="text-zinc-300 leading-normal">{currentRule.prohibitedContexts}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Simulator Context Input */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                  السياق التشغيلي المستهدف للاختبار (Target Context Text):
+                </label>
+                <textarea
+                  rows={3}
+                  value={simulatorContextText}
+                  onChange={(e) => setSimulatorContextText(e.target.value)}
+                  placeholder="أدخل كلمات السياق المستهدف بالإنجليزية أو العربية..."
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono"
+                />
+                <span className="text-[10px] text-zinc-500 mt-1 block">
+                  💡 تلميح للاختبار: اكتب مثلاً <code className="text-emerald-400">postgresql supabase checkout pool traffic</code> لاختبار العبور الناجح، أو أضف كلمة <code className="text-rose-400">serializable</code> لمشاهدة حظر النقل السلبي التلقائي.
+                </span>
+              </div>
+
+              {/* Simulator Action */}
+              <div className="flex items-center justify-between pt-1">
+                <Button
+                  onClick={() => {
+                    const rule =
+                      SEED_LEARNED_RULES.find((r) => r.id === simulatorRuleId) ||
+                      SEED_LEARNED_RULES[0];
+                    const result = evaluateContextGate(simulatorContextText, rule);
+                    setSimulatorResult(result);
+                  }}
+                  className="gap-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs px-5 py-2 transition-colors shadow-lg cursor-pointer"
+                >
+                  <CpuIcon className="size-3.5" />
+                  <span>فحص بوابة العبور الرياضية لحظياً ⚡</span>
+                </Button>
+              </div>
+
+              {/* Live Simulation Result Display */}
+              {simulatorResult && (
+                <div
+                  className={cn(
+                    "rounded-xl border p-4 space-y-3 transition-all",
+                    simulatorResult.status === "APPROVED"
+                      ? "border-emerald-500/50 bg-emerald-950/20"
+                      : simulatorResult.status === "BLOCKED_NEGATIVE_TRANSFER"
+                      ? "border-rose-500/50 bg-rose-950/30 ring-1 ring-rose-500/40"
+                      : "border-amber-500/50 bg-amber-950/20",
+                  )}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-zinc-100">نتيجة قرار بوابة السياق:</span>
+                      <span
+                        className={cn(
+                          "rounded-lg px-2.5 py-1 text-[11px] font-bold font-mono border",
+                          simulatorResult.status === "APPROVED"
+                            ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
+                            : simulatorResult.status === "BLOCKED_NEGATIVE_TRANSFER"
+                            ? "border-rose-500/60 bg-rose-500/20 text-rose-300 animate-pulse"
+                            : "border-amber-500/40 bg-amber-500/20 text-amber-300",
+                        )}
+                      >
+                        {simulatorResult.status}
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono text-zinc-300 font-semibold">
+                      درجة التشابه: {(simulatorResult.similarityScore * 100).toFixed(1)}% (العتبة: {(simulatorResult.threshold * 100).toFixed(0)}%)
+                    </span>
+                  </div>
+
+                  {/* Similarity Gauge */}
+                  <div className="w-full bg-zinc-800/80 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-2.5 rounded-full transition-all duration-500",
+                        simulatorResult.isApproved ? "bg-emerald-500" : "bg-rose-500",
+                      )}
+                      style={{
+                        width: `${Math.min(100, simulatorResult.similarityScore * 100)}%`,
+                      }}
+                    />
+                  </div>
+
+                  {/* Detected Tokens Badges */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    {(simulatorResult.matchedKeywords?.length ?? 0) > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-zinc-400">الكلمات المتطابقة:</span>
+                        {simulatorResult.matchedKeywords?.map((kw: string) => (
+                          <span
+                            key={kw}
+                            className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[10px] text-emerald-300"
+                          >
+                            ✓ {kw}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {(simulatorResult.prohibitedHits?.length ?? 0) > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-rose-400 font-semibold">موانع النقل السلبي:</span>
+                        {simulatorResult.prohibitedHits?.map((hit: string) => (
+                          <span
+                            key={hit}
+                            className="rounded border border-rose-500/50 bg-rose-500/20 px-1.5 py-0.5 font-mono text-[10px] text-rose-300 font-bold"
+                          >
+                            ⛔ {hit}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Reasoning & Guidance */}
+                  <div className="rounded-lg bg-zinc-950/80 p-3 border border-zinc-800/80 text-xs text-zinc-200 leading-relaxed space-y-1 font-sans">
+                    <p>
+                      <strong className="text-zinc-300">التعليل المعماري:</strong> {simulatorResult.reasoning}
+                    </p>
+                    {simulatorResult.transferRisk && (
+                      <p className="text-[11px] text-zinc-400 font-mono">
+                        ⚠️ مخاطر النقل: {simulatorResult.transferRisk}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Curated Seed Rules Knowledge Base */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-2">
+                <span className="font-bold text-xs text-zinc-200">
+                  قاعدة القواعد الإرشادية المؤسسية المعتمدة (Episodic Knowledge Store):
+                </span>
+                <span className="text-[11px] text-zinc-500 font-mono">
+                  {SEED_LEARNED_RULES.length} قواعد موثقة مع حدود صلاحية
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {SEED_LEARNED_RULES.map((rule) => (
+                  <div
+                    key={rule.id}
+                    className="rounded-xl border border-zinc-800/70 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="rounded font-mono text-[10px] px-1.5 py-0.5 bg-zinc-800 text-cyan-400 border border-zinc-700">
+                        {rule.id}
+                      </span>
+                      <span className="rounded font-mono text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        الثقة: {(rule.confidenceScore * 100).toFixed(0)}%
+                      </span>
+                    </div>
+
+                    <h4 className="font-semibold text-xs text-zinc-200 leading-snug">
+                      {rule.title}
+                    </h4>
+
+                    <p className="text-[11px] text-zinc-400 leading-relaxed line-clamp-3">
+                      {rule.lessonLearned}
+                    </p>
+
+                    <div className="pt-1 text-[10px] space-y-1.5 border-t border-zinc-800/60">
+                      <div>
+                        <span className="text-emerald-400 font-semibold block">حدود الصلاحية:</span>
+                        <span className="text-zinc-400 line-clamp-2">{rule.validityBoundary}</span>
+                      </div>
+                      <div>
+                        <span className="text-rose-400 font-semibold block">السياقات المحظورة:</span>
+                        <span className="text-zinc-400 line-clamp-2">{rule.prohibitedContexts}</span>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSimulatorRuleId(rule.id);
+                        const res = evaluateContextGate(simulatorContextText, rule);
+                        setSimulatorResult(res);
+                      }}
+                      className="w-full mt-1 gap-1.5 rounded-lg border-cyan-500/30 bg-cyan-950/20 text-cyan-300 hover:bg-cyan-950/50 hover:text-white text-[11px] cursor-pointer"
+                    >
+                      <SparklesIcon className="size-3 text-cyan-400" />
+                      <span>اختبار هذه القاعدة في المحاكي 🧪</span>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
           /* Studio & Runner View */
           <>
-            {/* 6 Pipeline Selectors */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2">
+            {/* 7 Pipeline Selectors */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2 pt-2">
               {/* 1. Feature Delivery */}
               <button
                 type="button"
@@ -690,6 +1045,30 @@ export function ExecutiveWorkflowsModal({
                 </div>
                 <span className="font-semibold text-xs mt-1">طوارئ و SRE</span>
                 <span className="text-[10px] text-zinc-500">Incident & SRE</span>
+              </button>
+
+              {/* 7. Continual Learning & Context Gating */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActivePipeline("continual-learning");
+                  setExecutionResult(null);
+                }}
+                className={cn(
+                  "flex flex-col gap-1 rounded-xl border p-2.5 text-right transition-all cursor-pointer",
+                  activePipeline === "continual-learning"
+                    ? "border-cyan-500/50 bg-cyan-500/10 text-cyan-300 shadow-md ring-1 ring-cyan-500/30"
+                    : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200",
+                )}
+              >
+                <div className="flex items-center justify-between">
+                  <CpuIcon className="size-4 text-cyan-400" />
+                  <span className="text-[9px] font-mono rounded bg-zinc-900/80 px-1 py-0.5 border border-zinc-800">
+                    3 مراحل
+                  </span>
+                </div>
+                <span className="font-semibold text-xs mt-1">التعلم وبوابات السياق</span>
+                <span className="text-[10px] text-zinc-500">Context Gating</span>
               </button>
             </div>
 
@@ -994,6 +1373,82 @@ export function ExecutiveWorkflowsModal({
                       onChange={(e) => setIncidentRecentChanges(e.target.value)}
                       className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-rose-500"
                     />
+                  </div>
+                </>
+              )}
+
+              {activePipeline === "continual-learning" && (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      عنوان الواقعة أو المهمة الهندسية للذاكرة العرضية (Episodic Task):
+                    </label>
+                    <input
+                      type="text"
+                      value={episodeTask}
+                      onChange={(e) => setEpisodeTask(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                        النطاق الفني (Domain):
+                      </label>
+                      <input
+                        type="text"
+                        value={episodeDomain}
+                        onChange={(e) => setEpisodeDomain(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                        البيئة التشغيلية (Environment):
+                      </label>
+                      <input
+                        type="text"
+                        value={episodeEnvironment}
+                        onChange={(e) => setEpisodeEnvironment(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      القرار الهندسي المتخذ (Decision Taken & Architecture):
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={decisionTaken}
+                      onChange={(e) => setDecisionTaken(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      الواقع المرصود والنتائج المقاسة (Observed Reality & Metrics):
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={observedReality}
+                      onChange={(e) => setObservedReality(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-cyan-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+                      السياق المستهدف لاختبار بوابة العبور ومنع النقل السلبي (Target Test Context):
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={targetNewContext}
+                      onChange={(e) => setTargetNewContext(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-800 bg-zinc-950/80 px-3 py-2 text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 font-mono"
+                    />
+                    <span className="text-[10px] text-zinc-500 mt-1 block">
+                      سيقوم سرب Groq بحساب تشابه السياق الجديد وفحص موانع النقل السلبي (Similarity ≥ 0.75) في الوقت الفعلي.
+                    </span>
                   </div>
                 </>
               )}
@@ -1541,6 +1996,157 @@ export function ExecutiveWorkflowsModal({
                       <pre className="text-xs text-zinc-200 font-sans whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
                         {executionResult.output.postMortemMarkdown}
                       </pre>
+                    </div>
+                  )}
+                  {/* Continual Learning & Context Gating Results */}
+                  {executionResult.output?.episodeId && (
+                    <div className="rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-xs text-cyan-300">
+                            1. استيعاب السجل العرضي في الذاكرة (Episodic Memory Ingested)
+                          </span>
+                          <span className="rounded border border-cyan-500/40 bg-cyan-500/20 px-1.5 py-0.5 text-[9px] font-mono text-cyan-300">
+                            INGESTED ●
+                          </span>
+                        </div>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          onClick={() =>
+                            handleCopy(
+                              JSON.stringify(executionResult.output, null, 2),
+                              "episode",
+                            )
+                          }
+                        >
+                          {copiedKey === "episode" ? (
+                            <CheckIcon className="size-3 text-emerald-400" />
+                          ) : (
+                            <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                          )}
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-zinc-300 mb-2 font-mono">
+                        <div className="rounded bg-zinc-900/60 p-2 border border-zinc-800/80">
+                          <span className="text-zinc-500 block text-[10px]">Episode ID:</span>
+                          <span className="text-cyan-400">{executionResult.output.episodeId}</span>
+                        </div>
+                        <div className="rounded bg-zinc-900/60 p-2 border border-zinc-800/80">
+                          <span className="text-zinc-500 block text-[10px]">Vector ID:</span>
+                          <span className="text-emerald-400">{executionResult.output.vectorId}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-zinc-300 space-y-1">
+                        <p><strong className="text-zinc-400">المهمة:</strong> {executionResult.output.task}</p>
+                        <p><strong className="text-zinc-400">النطاق / البيئة:</strong> {executionResult.output.domain} / {executionResult.output.environment}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Continual Learning & Context Gating Results */}
+                  {executionResult.output?.gateStatus && (
+                    <div className="space-y-3">
+                      {/* 1. Gate Status & Score Gauge */}
+                      <div className={cn(
+                        "rounded-lg border p-3.5 space-y-2.5",
+                        executionResult.output.gateStatus === "APPROVED"
+                          ? "border-emerald-500/40 bg-emerald-950/20"
+                          : executionResult.output.gateStatus === "BLOCKED_NEGATIVE_TRANSFER"
+                          ? "border-rose-500/50 bg-rose-950/30 ring-1 ring-rose-500/40"
+                          : "border-amber-500/40 bg-amber-950/20"
+                      )}>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-xs text-zinc-100">
+                              1. القرار الحتمي لبوابة السياق (Deterministic Gate Verdict)
+                            </span>
+                            <span className={cn(
+                              "rounded-lg px-2.5 py-1 text-[11px] font-bold font-mono border",
+                              executionResult.output.gateStatus === "APPROVED"
+                                ? "border-emerald-500/40 bg-emerald-500/20 text-emerald-300"
+                                : executionResult.output.gateStatus === "BLOCKED_NEGATIVE_TRANSFER"
+                                ? "border-rose-500/60 bg-rose-500/20 text-rose-300 animate-pulse"
+                                : "border-amber-500/40 bg-amber-500/20 text-amber-300"
+                            )}>
+                              {executionResult.output.gateStatus}
+                            </span>
+                          </div>
+                          <span className="text-xs font-mono text-zinc-300 font-semibold">
+                            درجة التشابه: {((executionResult.output.similarityScore ?? 0.85) * 100).toFixed(0)}% (العتبة: 75%)
+                          </span>
+                        </div>
+
+                        {/* Similarity Gauge */}
+                        <div className="w-full bg-zinc-800 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={cn(
+                              "h-2 rounded-full transition-all duration-500",
+                              executionResult.output.gateStatus === "APPROVED" ? "bg-emerald-500" : "bg-rose-500"
+                            )}
+                            style={{ width: `${Math.min(100, (executionResult.output.similarityScore ?? 0.85) * 100)}%` }}
+                          />
+                        </div>
+
+                        <div className="rounded-md bg-zinc-900/60 p-2 border border-zinc-800 text-xs space-y-1">
+                          <p className="font-bold text-zinc-200">{executionResult.output.ruleTitle}</p>
+                          <p className="text-zinc-400 text-[11px] leading-relaxed">{executionResult.output.lessonLearned}</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs pt-1">
+                          <div className="rounded-md border border-emerald-500/20 bg-emerald-950/20 p-2">
+                            <span className="text-emerald-400 font-semibold block mb-0.5 text-[11px]">
+                              ✅ حدود الصلاحية (Validity Boundary):
+                            </span>
+                            <span className="text-zinc-300 text-[11px]">
+                              {executionResult.output.validityBoundary}
+                            </span>
+                          </div>
+                          <div className="rounded-md border border-rose-500/20 bg-rose-950/20 p-2">
+                            <span className="text-rose-400 font-semibold block mb-0.5 text-[11px]">
+                              ⛔ موانع النقل السلبي (Prohibited Contexts):
+                            </span>
+                            <span className="text-zinc-300 text-[11px]">
+                              {executionResult.output.prohibitedContexts}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 2. Gating Report Markdown (120B Executive Report) */}
+                      {executionResult.output?.gatingReportMarkdown && (
+                        <div className="rounded-lg border border-cyan-500/30 bg-zinc-950/90 p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-xs text-cyan-300">
+                                2. تقرير قرار بوابة السياق والتعلم المستمر (Context Gating Executive Report)
+                              </span>
+                              <span className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-300">
+                                120B ENGINE ●
+                              </span>
+                            </div>
+                            <Button
+                              size="icon-xs"
+                              variant="ghost"
+                              onClick={() =>
+                                handleCopy(
+                                  executionResult.output.gatingReportMarkdown,
+                                  "gatingReport",
+                                )
+                              }
+                            >
+                              {copiedKey === "gatingReport" ? (
+                                <CheckIcon className="size-3 text-emerald-400" />
+                              ) : (
+                                <ClipboardCopyIcon className="size-3 text-zinc-400" />
+                              )}
+                            </Button>
+                          </div>
+                          <pre className="text-xs text-zinc-200 font-sans whitespace-pre-wrap leading-relaxed max-h-72 overflow-y-auto">
+                            {executionResult.output.gatingReportMarkdown}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

@@ -651,6 +651,18 @@ function SidebarContent({
               <span className="text-[10px] font-mono text-zinc-500 group-hover:text-rose-400">تشغيل ⚡</span>
             </button>
 
+            <button
+              type="button"
+              onClick={() => onOpenModal?.("continual-learning")}
+              className="flex items-center justify-between rounded-lg border border-zinc-800/60 bg-zinc-950/50 px-2.5 py-2 text-right text-[11px] text-zinc-300 transition-all hover:border-cyan-500/40 hover:bg-cyan-500/10 hover:text-white cursor-pointer group"
+            >
+              <div className="flex items-center gap-1.5">
+                <span className="text-cyan-400 group-hover:scale-110 transition-transform">🧠</span>
+                <span>التعلم وبوابات السياق</span>
+              </div>
+              <span className="text-[10px] font-mono text-zinc-500 group-hover:text-cyan-400">تشغيل ⚡</span>
+            </button>
+
             <Button
               size="sm"
               variant="outline"

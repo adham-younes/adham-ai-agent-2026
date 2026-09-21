@@ -6,6 +6,7 @@ import { codeAuditAndRepairWorkflow } from "./workflows/code-audit-repair";
 import { releaseDeploymentWorkflow } from "./workflows/release-readiness";
 import { architectureEvaluationWorkflow } from "./workflows/architecture-evaluation";
 import { incidentResponseWorkflow } from "./workflows/incident-response";
+import { continualLearningWorkflow } from "./workflows/continual-learning";
 
 const dbUrl =
   process.env.POSTGRES_URL ||
@@ -26,6 +27,7 @@ export const mastra = new Mastra({
     releaseDeploymentWorkflow,
     architectureEvaluationWorkflow,
     incidentResponseWorkflow,
+    continualLearningWorkflow,
   },
 });
 
@@ -36,4 +38,5 @@ export {
   releaseDeploymentWorkflow,
   architectureEvaluationWorkflow,
   incidentResponseWorkflow,
+  continualLearningWorkflow,
 };

@@ -40,6 +40,11 @@ export async function GET(req: Request) {
         name: "الاستجابة للحوادث و SRE (Incident Response & Post-Mortem)",
         steps: 4,
       },
+      {
+        id: "continual-learning",
+        name: "التعلم المستمر وبوابة السياق (Context-Gated Continual Learning)",
+        steps: 3,
+      },
     ],
     queriedRunId: runId ?? null,
   });
@@ -64,7 +69,8 @@ export async function POST(req: Request) {
       | "codeAuditAndRepairWorkflow"
       | "releaseDeploymentWorkflow"
       | "architectureEvaluationWorkflow"
-      | "incidentResponseWorkflow";
+      | "incidentResponseWorkflow"
+      | "continualLearningWorkflow";
 
     if (
       workflowId === "feature-delivery" ||
@@ -96,10 +102,15 @@ export async function POST(req: Request) {
       workflowId === "incidentResponseWorkflow"
     ) {
       workflowKey = "incidentResponseWorkflow";
+    } else if (
+      workflowId === "continual-learning" ||
+      workflowId === "continualLearningWorkflow"
+    ) {
+      workflowKey = "continualLearningWorkflow";
     } else {
       return NextResponse.json(
         {
-          error: `Unknown workflowId: ${workflowId}. Supported: feature-delivery, database-engineering, code-audit-repair, release-readiness, architecture-evaluation, incident-response`,
+          error: `Unknown workflowId: ${workflowId}. Supported: feature-delivery, database-engineering, code-audit-repair, release-readiness, architecture-evaluation, incident-response, continual-learning`,
         },
         { status: 404 },
       );
