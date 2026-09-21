@@ -17,6 +17,9 @@ function getAllowedHosts(): string[] {
     process.env.VERCEL_PROJECT_PRODUCTION_URL,
   ].filter((host): host is string => Boolean(host));
   if (deploymentHosts.length === 0) {
+    if (!process.env.VERCEL) {
+      return DEVELOPMENT_ALLOWED_HOSTS;
+    }
     throw new Error("No trusted deployment hosts are configured");
   }
   return Array.from(new Set(deploymentHosts));
@@ -25,7 +28,9 @@ function getAllowedHosts(): string[] {
 function requireEnvironmentVariable(name: string): string {
   const value = process.env[name];
   if (value) return value;
-  if (process.env.NODE_ENV === "development") return `development-${name}`;
+  if (process.env.NODE_ENV === "development" || !process.env.VERCEL) {
+    return `development-${name}`;
+  }
   throw new Error(`Missing required environment variable: ${name}`);
 }
 

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +22,9 @@ const mono = Geist_Mono({
 export const metadata: Metadata = {
   title: "adham | الوكيل التنفيذي الذكي",
   description: "وكيل عربي تنفيذي للبحث والتحليل وبناء الحلول وتنفيذها.",
+};
+
+export const viewport: Viewport = {
   themeColor: "#080b12",
 };
 
