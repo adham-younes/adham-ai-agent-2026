@@ -90,7 +90,7 @@ export const SEED_EPISODIC_RECORDS: readonly EpisodicRecord[] = [
     timestamp: "2026-09-21 23:40:15",
     pipeline: "release-readiness",
     context: {
-      task: "نشر محرك مسارات Mastra وسرب Groq LPU في بيئة Vercel الإنتاجية",
+      task: "نشر نظام الوكلاء ومساراته في بيئة Vercel الإنتاجية",
       domain: "Distributed AI Agent App",
       environment: "Next.js 16 Turbopack + Node 22 Nitro Server",
       constraints: "صفر أخطاء TypeScript وتوافق كامل لبيئة Edge",

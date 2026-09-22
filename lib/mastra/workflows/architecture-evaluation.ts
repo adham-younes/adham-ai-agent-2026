@@ -47,7 +47,7 @@ export const tradeoffsSpikeStep = createStep({
   inputSchema: ArchitectureEvaluationInputSchema,
   outputSchema: TradeoffsOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_1", "qwen/qwen3.8-27b");
     const prompt = `أنت مهندس معماري برمجيات رئيسي (Chief Software & Systems Architect).
 قم بإجراء تحليل معماري ومفاضلة هندسية عميقة (Architectural Trade-offs Spike):
 عنوان النظام: ${inputData.systemTitle}
@@ -110,7 +110,7 @@ export const adrGeneratorStep = createStep({
   inputSchema: CostProjectionOutputSchema,
   outputSchema: AdrGeneratorOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_3", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_3", "qwen/qwen3.8-27b");
     const prompt = `أنت رئيس الحوكمة المعمارية (Architecture Governance Lead).
 بناءً على تحليلات المقايضات والتكاليف للنظام [${inputData.systemTitle}]:
 التحليل المعماري:

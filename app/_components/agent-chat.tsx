@@ -5,27 +5,24 @@ import { useEveAgent } from "eve/react";
 import {
   ActivityIcon,
   AlertCircleIcon,
-  ArrowUpLeftIcon,
-  BotIcon,
-  BrainCircuitIcon,
-  CheckCircle2Icon,
-  ChevronLeftIcon,
-  CircleGaugeIcon,
-  CloudIcon,
+  BrainIcon,
   Code2Icon,
   DatabaseIcon,
+  GitBranchIcon,
+  Globe2Icon,
   MenuIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
   PlusIcon,
-  RadarIcon,
-  RouteIcon,
+  RocketIcon,
+  SearchIcon,
+  Settings2Icon,
   ShieldCheckIcon,
   SparklesIcon,
   SquareIcon,
-  WorkflowIcon,
+  TerminalSquareIcon,
+  UsersIcon,
   XIcon,
-  ZapIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
@@ -47,35 +44,30 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AgentMessage } from "./agent-message";
+import { AgentSettingsDialog } from "./agent-settings-dialog";
 import {
   ExecutiveWorkflowsModal,
   type WorkflowPipelineType,
 } from "./executive-workflows-modal";
 
-const AGENT_NAME = "adham-ai-agent-2026";
-
-const PIPELINES: readonly {
+const WORKFLOWS: readonly {
   id: WorkflowPipelineType;
-  title: string;
-  english: string;
-  description: string;
-  steps: number;
+  label: string;
+  hint: string;
   icon: React.ElementType;
-  accent: string;
 }[] = [
-  { id: "feature-delivery", title: "تسليم الميزات", english: "Feature delivery", description: "مواصفات، بيانات، تنفيذ وتدقيق", steps: 4, icon: SparklesIcon, accent: "emerald" },
-  { id: "database-engineering", title: "هندسة البيانات", english: "Database & RLS", description: "PostgreSQL، فهارس وسياسات وصول", steps: 3, icon: DatabaseIcon, accent: "blue" },
-  { id: "code-audit-repair", title: "تدقيق الكود", english: "Code audit", description: "سبب جذري ورقعة قابلة للتحقق", steps: 2, icon: Code2Icon, accent: "amber" },
-  { id: "release-readiness", title: "جاهزية الإصدار", english: "Release readiness", description: "بوابات جودة ونشر وتراجع", steps: 3, icon: CloudIcon, accent: "violet" },
-  { id: "architecture-evaluation", title: "قرار معماري", english: "Architecture ADR", description: "مقايضات وتكلفة وسجل قرار", steps: 3, icon: RouteIcon, accent: "fuchsia" },
-  { id: "incident-response", title: "استجابة للحوادث", english: "Incident response", description: "تصنيف، RCA واحتواء", steps: 4, icon: ActivityIcon, accent: "rose" },
-  { id: "continual-learning", title: "تعلم مستمر", english: "Context learning", description: "معرفة محكومة ببوابة سياق", steps: 3, icon: BrainCircuitIcon, accent: "cyan" },
+  { id: "feature-delivery", label: "بناء ميزة", hint: "تخطيط وتنفيذ ومراجعة", icon: SparklesIcon },
+  { id: "code-audit-repair", label: "إصلاح كود", hint: "تشخيص واختبار", icon: Code2Icon },
+  { id: "database-engineering", label: "هندسة بيانات", hint: "مخطط وأداء وصلاحيات", icon: DatabaseIcon },
+  { id: "architecture-evaluation", label: "قرار معماري", hint: "بدائل ومقايضات", icon: GitBranchIcon },
+  { id: "incident-response", label: "معالجة حادث", hint: "احتواء وسبب جذري", icon: ActivityIcon },
+  { id: "release-readiness", label: "تجهيز إصدار", hint: "فحص ونشر وتراجع", icon: RocketIcon },
+  { id: "continual-learning", label: "استخلاص معرفة", hint: "ذاكرة محكومة بالسياق", icon: BrainIcon },
 ] as const;
 
 interface PlatformStatus {
   readonly status: string;
   readonly storage: "postgres" | "ephemeral";
-  readonly models: Record<"orchestrator" | "executor" | "analyst", boolean>;
 }
 
 export function AgentChat({
@@ -89,31 +81,24 @@ export function AgentChat({
   const [hasInputText, setHasInputText] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedPipeline, setSelectedPipeline] =
-    useState<WorkflowPipelineType>("feature-delivery");
+  const [workflowOpen, setWorkflowOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowPipelineType>("feature-delivery");
   const [platform, setPlatform] = useState<PlatformStatus>();
 
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/executive-workflows", { signal: controller.signal })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Platform status unavailable");
+        if (!response.ok) throw new Error("unavailable");
         setPlatform((await response.json()) as PlatformStatus);
       })
       .catch(() => setPlatform(undefined));
     return () => controller.abort();
   }, []);
 
-  const openPipeline = (pipeline: WorkflowPipelineType) => {
-    setSelectedPipeline(pipeline);
-    setModalOpen(true);
-    setMobileOpen(false);
-  };
-
   const agent = useEveAgent({
-    initialSession:
-      sessionId === undefined ? undefined : { sessionId, streamIndex: 0 },
+    initialSession: sessionId === undefined ? undefined : { sessionId, streamIndex: 0 },
     resume: sessionId !== undefined,
     onSessionChange(session) {
       if (sessionId === undefined && session !== undefined) {
@@ -141,16 +126,19 @@ export function AgentChat({
   const showConversation = isResuming || sessionless || !isEmpty || errorMessage !== undefined;
   const activeSessionId = sessionId ?? agent.session?.sessionId;
 
+  const openWorkflow = (workflow: WorkflowPipelineType) => {
+    setSelectedWorkflow(workflow);
+    setWorkflowOpen(true);
+    setMobileOpen(false);
+  };
+
   const handleSubmit = async (message: PromptInputMessage) => {
     const text = message.text.trim();
     if ((text.length === 0 && message.files.length === 0) || isResuming) return;
     setHasInputText(false);
     setCancellationError(undefined);
     const options = isBusy ? { turnPolicy: "steer" as const } : undefined;
-    if (message.files.length === 0) {
-      await agent.send(text, options);
-      return;
-    }
+    if (message.files.length === 0) return agent.send(text, options);
     const parts: UserContent = [];
     if (text) parts.push({ text, type: "text" });
     for (const file of message.files) {
@@ -161,50 +149,45 @@ export function AgentChat({
 
   const composer = (
     <div className="composer-shell">
-      <div className="mb-2 flex items-center justify-between px-2 text-[11px] text-zinc-500">
-        <span className="flex items-center gap-2">
-          <span className={cn("status-dot", isBusy && "status-dot-busy")} />
-          {isBusy ? "تنفيذ جارٍ — يمكنك توجيه المهمة أثناء العمل" : "الموجّه التنفيذي جاهز"}
-        </span>
-        <span className="hidden font-mono sm:inline">ENTER ↵</span>
-      </div>
       <PromptInput onSubmit={handleSubmit}>
         <PromptInputTextarea
-          aria-label="رسالة إلى الوكيل"
-          className="min-h-[62px] resize-none border-none bg-transparent px-2 py-1 text-[15px] leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
+          aria-label="اكتب مهمتك"
+          className="min-h-[68px] resize-none border-none bg-transparent px-3 py-2 text-[15px] leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
           disabled={isResuming}
           onChange={(event) => setHasInputText(event.currentTarget.value.trim().length > 0)}
-          placeholder="صف النتيجة التي تريد إنجازها..."
+          placeholder="ماذا تريد أن ننجز؟"
         />
-        <ComposerAction
-          hasInputText={hasInputText}
-          isBusy={isBusy}
-          isResuming={isResuming}
-          onCancel={() => {
-            setCancellationError(undefined);
-            void agent.cancel().catch((error: unknown) => setCancellationError(toErrorMessage(error)));
-          }}
-        />
+        <div className="flex items-center justify-between px-1 pb-1">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-600">
+            <span className={cn("status-dot", isBusy && "status-dot-busy")} />
+            {isBusy ? "يعمل الآن — يمكنك تعديل الاتجاه" : "جاهز للبحث والتنفيذ"}
+          </div>
+          <ComposerAction
+            hasInputText={hasInputText}
+            isBusy={isBusy}
+            isResuming={isResuming}
+            onCancel={() => {
+              setCancellationError(undefined);
+              void agent.cancel().catch((error: unknown) => setCancellationError(toErrorMessage(error)));
+            }}
+          />
+        </div>
       </PromptInput>
     </div>
   );
 
   return (
     <div className="app-shell">
-      <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[292px]" : "w-0 border-0")}>
-        <Sidebar
-          activeSessionId={activeSessionId}
-          onOpenPipeline={openPipeline}
-          platform={platform}
-        />
+      <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[268px]" : "w-0 border-0")}>
+        <Sidebar onOpenSettings={() => setSettingsOpen(true)} onOpenWorkflow={openWorkflow} platform={platform} />
       </aside>
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button aria-label="إغلاق القائمة" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
-          <aside className="sidebar absolute inset-y-0 right-0 flex w-[292px] shadow-2xl">
+          <button aria-label="إغلاق القائمة" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
+          <aside className="sidebar absolute inset-y-0 right-0 flex w-[min(86vw,320px)] shadow-2xl">
             <Button aria-label="إغلاق القائمة" className="absolute left-3 top-3 z-10" onClick={() => setMobileOpen(false)} size="icon-sm" variant="ghost"><XIcon className="size-4" /></Button>
-            <Sidebar activeSessionId={activeSessionId} onOpenPipeline={openPipeline} platform={platform} />
+            <Sidebar onOpenSettings={() => { setSettingsOpen(true); setMobileOpen(false); }} onOpenWorkflow={openWorkflow} platform={platform} />
           </aside>
         </div>
       ) : null}
@@ -216,24 +199,21 @@ export function AgentChat({
             <Button aria-label="طي القائمة" className="hidden lg:inline-flex" onClick={() => setSidebarOpen((value) => !value)} size="icon-sm" variant="ghost">
               {sidebarOpen ? <PanelRightCloseIcon className="size-4" /> : <PanelRightOpenIcon className="size-4" />}
             </Button>
-            <div>
-              <p className="text-sm font-semibold text-zinc-100">مساحة التنفيذ</p>
-              <p className="text-[11px] text-zinc-500">{activeSessionId ? `جلسة ${activeSessionId.slice(0, 8)}` : "جلسة جديدة"}</p>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-zinc-200">مساحة العمل</p>
+              <p className="truncate text-[10px] text-zinc-600">{activeSessionId ? `جلسة ${activeSessionId.slice(0, 8)}` : "محادثة جديدة"}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-2 rounded-full border border-white/8 bg-white/[0.03] px-3 py-1.5 text-[11px] text-zinc-400 sm:flex">
-              <span className={cn("status-dot", platform?.status !== "online" && "bg-zinc-600 shadow-none")} />
-              {platform?.status === "online" ? "المنصة متصلة" : "جارٍ التحقق"}
-            </span>
-            <Button className="gap-2 rounded-full border-white/10 bg-white/[0.04]" onClick={() => window.location.assign("/s")} size="sm" variant="outline"><PlusIcon className="size-3.5" />مهمة جديدة</Button>
+          <div className="flex items-center gap-1.5">
+            <Button aria-label="إعدادات الوكيل" onClick={() => setSettingsOpen(true)} size="icon-sm" variant="ghost"><Settings2Icon className="size-4" /></Button>
+            <Button className="rounded-lg border-white/10 bg-white/[0.035]" onClick={() => window.location.assign("/s")} size="sm" variant="outline"><PlusIcon className="size-3.5" /><span className="hidden sm:inline">محادثة جديدة</span></Button>
           </div>
         </header>
 
         {showConversation ? (
           <Conversation className="flex-1">
             <ConversationTopFade />
-            <ConversationContent className="mx-auto w-full max-w-3xl gap-6 px-4 pb-44 pt-8 sm:px-6">
+            <ConversationContent className="mx-auto w-full max-w-[820px] gap-8 px-4 pb-48 pt-8 sm:px-8 lg:pt-12">
               {isResuming ? <LoadingState /> : null}
               {agent.data.messages.map((message, index) => (
                 <AgentMessage
@@ -250,83 +230,55 @@ export function AgentChat({
             <ConversationScrollButton />
           </Conversation>
         ) : (
-          <Welcome onOpenPipeline={openPipeline} platform={platform} onPrompt={(prompt) => void agent.send(prompt)} />
+          <Welcome onOpenWorkflow={openWorkflow} onPrompt={(prompt) => void agent.send(prompt)} />
         )}
 
         <div className={cn("composer-wrap", showConversation ? "composer-fixed" : "composer-home")}>{composer}</div>
       </main>
 
+      <AgentSettingsDialog onOpenChange={setSettingsOpen} open={settingsOpen} />
       <ExecutiveWorkflowsModal
-        initialPipeline={selectedPipeline}
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSendToChat={(text) => {
-          setCancellationError(undefined);
-          void agent.send(text);
-        }}
+        initialPipeline={selectedWorkflow}
+        isOpen={workflowOpen}
+        onClose={() => setWorkflowOpen(false)}
+        onSendToChat={(text) => void agent.send(text)}
       />
     </div>
   );
 }
 
 function Welcome({
-  onOpenPipeline,
+  onOpenWorkflow,
   onPrompt,
-  platform,
 }: {
-  readonly onOpenPipeline: (pipeline: WorkflowPipelineType) => void;
+  readonly onOpenWorkflow: (workflow: WorkflowPipelineType) => void;
   readonly onPrompt: (prompt: string) => void;
-  readonly platform?: PlatformStatus;
 }) {
   return (
     <div className="flex flex-1 overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-5xl flex-col px-5 pb-8 pt-10 sm:px-8 lg:pt-14">
-        <div className="mb-8 grid gap-6 lg:grid-cols-[1fr_280px] lg:items-end">
-          <div>
-            <div className="eyebrow"><RadarIcon className="size-3.5" />EXECUTIVE AGENT OPERATING SYSTEM</div>
-            <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.18] tracking-[-0.04em] text-white sm:text-5xl">
-              حوّل الهدف إلى<br /><span className="text-gradient">تنفيذ هندسي موثّق.</span>
-            </h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-zinc-400">
-              موجّه واحد يقود وكلاء التنفيذ والتحليل عبر مسارات حتمية، مع جلسات قابلة للاستئناف وسجل تشغيل دائم.
-            </p>
-          </div>
-          <div className="system-card">
-            <div className="flex items-center justify-between"><span className="text-xs font-semibold text-zinc-200">حالة النظام</span><CircleGaugeIcon className="size-4 text-emerald-400" /></div>
-            <StatusRow label="الموجّه" ready={platform?.models.orchestrator} />
-            <StatusRow label="التنفيذ" ready={platform?.models.executor} />
-            <StatusRow label="التحليل" ready={platform?.models.analyst} />
-            <StatusRow label="سجل التشغيل" ready={platform?.storage === "postgres"} />
-          </div>
-        </div>
+      <div className="mx-auto flex w-full max-w-4xl flex-col justify-center px-5 pb-8 pt-12 sm:px-8">
+        <div className="welcome-orb"><SparklesIcon className="size-5" /></div>
+        <p className="mt-6 text-xs font-medium text-zinc-500">فريق ذكاء تنفيذي</p>
+        <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-[1.35] tracking-[-0.035em] text-zinc-100 sm:text-5xl">
+          ابدأ بالهدف.<br /><span className="text-zinc-500">وسنحوّله إلى عمل منجز.</span>
+        </h1>
+        <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-500">
+          بحث مباشر، تنفيذ كود معزول، ذاكرة مستدامة، وفريق متخصص يعمل تحت منسّق واحد.
+        </p>
 
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-zinc-100">مسارات التنفيذ</h2>
-            <p className="mt-1 text-xs text-zinc-500">اختر مسارًا مضبوط المدخلات والمراحل</p>
-          </div>
-          <span className="font-mono text-[11px] text-zinc-600">7 WORKFLOWS</span>
-        </div>
-        <div className="pipeline-grid">
-          {PIPELINES.map((pipeline, index) => {
-            const Icon = pipeline.icon;
+        <div className="mt-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {WORKFLOWS.slice(0, 6).map((workflow) => {
+            const Icon = workflow.icon;
             return (
-              <button className={cn("pipeline-card", `accent-${pipeline.accent}`, index === 0 && "sm:col-span-2")} key={pipeline.id} onClick={() => onOpenPipeline(pipeline.id)} type="button">
-                <div className="flex items-start justify-between">
-                  <span className="pipeline-icon"><Icon className="size-4" /></span>
-                  <span className="flex items-center gap-1 font-mono text-[10px] text-zinc-600">{pipeline.steps} مراحل <ArrowUpLeftIcon className="size-3.5" /></span>
-                </div>
-                <div className="mt-5">
-                  <h3 className="text-sm font-semibold text-zinc-100">{pipeline.title}</h3>
-                  <p className="mt-1 font-mono text-[10px] uppercase tracking-wider text-zinc-600">{pipeline.english}</p>
-                  <p className="mt-3 text-xs leading-5 text-zinc-500">{pipeline.description}</p>
-                </div>
+              <button className="quick-action" key={workflow.id} onClick={() => onOpenWorkflow(workflow.id)} type="button">
+                <Icon className="size-4 text-zinc-400" />
+                <span className="min-w-0"><strong>{workflow.label}</strong><small>{workflow.hint}</small></span>
               </button>
             );
           })}
         </div>
-        <button className="mt-5 flex items-center justify-between rounded-2xl border border-dashed border-white/10 px-4 py-3 text-right text-xs text-zinc-500 transition hover:border-emerald-400/30 hover:text-zinc-300" onClick={() => onPrompt("راجع معمارية هذا النظام واقترح خطة تحسين مرتبة حسب الأولوية والأثر.")} type="button">
-          <span>أو ابدأ بطلب مفتوح للموجّه التنفيذي</span><ChevronLeftIcon className="size-4" />
+        <button className="mt-3 flex w-fit items-center gap-2 text-xs text-zinc-600 transition hover:text-zinc-300" onClick={() => onPrompt("ابحث لحظياً عن أهم التطورات التقنية اليوم وقدّم لي خلاصة موثقة بالمصادر.")} type="button">
+          <SearchIcon className="size-3.5" /> جرّب البحث اللحظي
         </button>
       </div>
     </div>
@@ -334,73 +286,77 @@ function Welcome({
 }
 
 function Sidebar({
-  activeSessionId,
-  onOpenPipeline,
+  onOpenSettings,
+  onOpenWorkflow,
   platform,
 }: {
-  readonly activeSessionId?: string;
-  readonly onOpenPipeline: (pipeline: WorkflowPipelineType) => void;
+  readonly onOpenSettings: () => void;
+  readonly onOpenWorkflow: (workflow: WorkflowPipelineType) => void;
   readonly platform?: PlatformStatus;
 }) {
   return (
-    <div className="flex h-full w-[292px] shrink-0 flex-col overflow-y-auto p-4">
+    <div className="flex h-full w-[268px] shrink-0 flex-col overflow-y-auto p-3">
       <div className="flex items-center gap-3 px-2 py-2">
-        <div className="brand-mark"><WorkflowIcon className="size-5" /></div>
-        <div><p className="text-sm font-bold tracking-tight text-white">adham.ai</p><p className="font-mono text-[9px] tracking-[0.18em] text-emerald-400">AGENT OPERATING SYSTEM</p></div>
+        <div className="brand-mark">A</div>
+        <div><p className="text-sm font-semibold text-zinc-100">Adham</p><p className="text-[10px] text-zinc-600">مساحة الوكلاء</p></div>
       </div>
-      <Button className="mt-5 w-full justify-start gap-2 rounded-xl border-white/10 bg-white/[0.04] text-zinc-200" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4 text-emerald-400" />مهمة جديدة</Button>
+      <Button className="mt-4 w-full justify-start rounded-xl border-white/8 bg-white/[0.035] text-zinc-300" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />محادثة جديدة</Button>
 
-      <p className="section-label mt-7">فريق الوكلاء</p>
-      <div className="mt-2 space-y-1.5">
-        <AgentRow icon={ZapIcon} label="الموجّه التنفيذي" model="GPT-OSS 120B" ready={platform?.models.orchestrator} />
-        <AgentRow icon={BotIcon} label="وكيل التنفيذ" model="QWEN 27B" ready={platform?.models.executor} />
-        <AgentRow icon={ShieldCheckIcon} label="وكيل التحليل" model="QWEN 27B" ready={platform?.models.analyst} />
-      </div>
-
-      <p className="section-label mt-7">المسارات</p>
+      <p className="section-label mt-6">القدرات</p>
       <nav className="mt-2 space-y-1">
-        {PIPELINES.map((pipeline) => {
-          const Icon = pipeline.icon;
-          return <button className="nav-item" key={pipeline.id} onClick={() => onOpenPipeline(pipeline.id)} type="button"><Icon className="size-3.5" /><span>{pipeline.title}</span><span className="ms-auto font-mono text-[9px] text-zinc-700">{pipeline.steps}</span></button>;
+        <SideItem icon={Globe2Icon} label="بحث لحظي" />
+        <SideItem icon={TerminalSquareIcon} label="تشغيل الكود" />
+        <SideItem icon={BrainIcon} label="ذاكرة مستدامة" />
+        <SideItem icon={UsersIcon} label="فريق متعدد الوكلاء" />
+      </nav>
+
+      <p className="section-label mt-6">مسارات جاهزة</p>
+      <nav className="mt-2 space-y-1">
+        {WORKFLOWS.map((workflow) => {
+          const Icon = workflow.icon;
+          return (
+            <button className="nav-item" key={workflow.id} onClick={() => onOpenWorkflow(workflow.id)} type="button">
+              <Icon className="size-3.5" /><span>{workflow.label}</span>
+            </button>
+          );
         })}
       </nav>
 
-      <div className="mt-auto pt-6">
-        <div className="rounded-xl border border-white/8 bg-black/20 p-3">
-          <div className="flex items-center justify-between text-[11px]"><span className="text-zinc-400">التخزين</span><span className={platform?.storage === "postgres" ? "text-emerald-400" : "text-amber-400"}>{platform?.storage === "postgres" ? "PostgreSQL دائم" : "مؤقت"}</span></div>
-          <div className="mt-2 flex items-center justify-between text-[11px]"><span className="text-zinc-400">الجلسة</span><span className="max-w-28 truncate font-mono text-zinc-600">{activeSessionId?.slice(0, 8) ?? "NEW"}</span></div>
+      <div className="mt-auto pt-5">
+        <button className="settings-entry" onClick={onOpenSettings} type="button">
+          <Settings2Icon className="size-4" />
+          <span><strong>تعليمات الوكيل</strong><small>الذاكرة والسلوك الدائم</small></span>
+        </button>
+        <div className="mt-3 flex items-center gap-2 px-2 text-[10px] text-zinc-600">
+          <span className={cn("status-dot", platform?.status !== "online" && "bg-zinc-700 shadow-none")} />
+          {platform?.status === "online" ? "جميع الأنظمة متصلة" : "جارٍ فحص الاتصال"}
         </div>
-        <p className="mt-3 px-1 font-mono text-[9px] text-zinc-700">PLATFORM 2.0 · VERCEL</p>
       </div>
     </div>
   );
 }
 
-function StatusRow({ label, ready }: { readonly label: string; readonly ready?: boolean }) {
-  return <div className="mt-3 flex items-center justify-between text-xs"><span className="text-zinc-500">{label}</span><span className={cn("flex items-center gap-1.5", ready ? "text-emerald-400" : "text-zinc-600")}><span className={cn("size-1.5 rounded-full", ready ? "bg-emerald-400" : "bg-zinc-700")} />{ready ? "جاهز" : "غير متاح"}</span></div>;
-}
-
-function AgentRow({ icon: Icon, label, model, ready }: { readonly icon: React.ElementType; readonly label: string; readonly model: string; readonly ready?: boolean }) {
-  return <div className="agent-row"><span className="flex size-7 items-center justify-center rounded-lg bg-white/[0.04] text-zinc-400"><Icon className="size-3.5" /></span><div className="min-w-0"><p className="truncate text-[11px] font-medium text-zinc-300">{label}</p><p className="font-mono text-[9px] text-zinc-600">{model}</p></div><span className={cn("ms-auto size-1.5 rounded-full", ready ? "bg-emerald-400 shadow-[0_0_8px_#34d399]" : "bg-zinc-700")} /></div>;
+function SideItem({ icon: Icon, label }: { readonly icon: React.ElementType; readonly label: string }) {
+  return <div className="nav-item cursor-default"><Icon className="size-3.5" /><span>{label}</span><ShieldCheckIcon className="ms-auto size-3 text-emerald-500/70" /></div>;
 }
 
 function ComposerAction({ hasInputText, isBusy, isResuming, onCancel }: { readonly hasInputText: boolean; readonly isBusy: boolean; readonly isResuming: boolean; readonly onCancel: () => void }) {
   const attachments = usePromptInputAttachments();
   const canSubmit = hasInputText || attachments.files.length > 0;
-  if (!isBusy || canSubmit) return <PromptInputSubmit aria-label="إرسال" className="rounded-xl bg-emerald-400 text-zinc-950 hover:bg-emerald-300" disabled={isResuming} />;
-  return <PromptInputButton aria-label="إيقاف التنفيذ" className="rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-400" onClick={onCancel} variant="outline"><SquareIcon className="size-3 fill-current" /></PromptInputButton>;
+  if (!isBusy || canSubmit) return <PromptInputSubmit aria-label="إرسال" className="rounded-lg bg-zinc-100 text-zinc-950 hover:bg-white" disabled={isResuming} />;
+  return <PromptInputButton aria-label="إيقاف التنفيذ" className="rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400" onClick={onCancel} variant="outline"><SquareIcon className="size-3 fill-current" /></PromptInputButton>;
 }
 
 function LoadingState() {
-  return <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-500"><span className="status-dot status-dot-busy" />استعادة الجلسة...</div>;
+  return <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-600"><span className="status-dot status-dot-busy" />استعادة المحادثة...</div>;
 }
 
 function PendingThinking() {
-  return <Message aria-live="polite" from="assistant"><MessageContent><div className="inline-flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-400"><BrainCircuitIcon className="size-4 animate-pulse text-emerald-400" /><Shimmer duration={1.2}>يحلّل الموجّه المهمة ويختار مسار التنفيذ...</Shimmer></div></MessageContent></Message>;
+  return <Message aria-live="polite" from="assistant"><MessageContent><div className="inline-flex items-center gap-2 py-2 text-sm text-zinc-500"><span className="status-dot status-dot-busy" /><Shimmer duration={1.1}>يعمل الفريق على المهمة...</Shimmer></div></MessageContent></Message>;
 }
 
 function ErrorMessage({ message }: { readonly message: string }) {
-  return <Message from="assistant"><MessageContent><div className="flex items-start gap-3 rounded-2xl border border-rose-500/20 bg-rose-500/8 p-4 text-sm text-rose-300" role="alert"><AlertCircleIcon className="mt-0.5 size-4 shrink-0" /><div><p className="font-semibold">تعذر إكمال التنفيذ</p><p className="mt-1 text-xs leading-5 text-zinc-400">{message}</p></div></div></MessageContent></Message>;
+  return <Message from="assistant"><MessageContent><div className="flex items-start gap-3 border-s-2 border-rose-500/50 py-2 ps-3 text-sm text-rose-300" role="alert"><AlertCircleIcon className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">تعذر إكمال المهمة</p><p className="mt-1 text-xs leading-5 text-zinc-500">{message}</p></div></div></MessageContent></Message>;
 }
 
 function toErrorMessage(error: unknown): string {

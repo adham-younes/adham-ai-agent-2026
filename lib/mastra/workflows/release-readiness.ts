@@ -18,7 +18,7 @@ export const ReleaseReadinessInputSchema = z.object({
   criticalIntegrations: z
     .string()
     .optional()
-    .default("Groq LPU Swarm, Supabase PostgreSQL, Vercel Edge")
+    .default("AI runtime, Supabase PostgreSQL, Vercel")
     .describe("الخدمات السحابية والربط الحرج"),
 });
 
@@ -54,7 +54,7 @@ export const envAuditStep = createStep({
   inputSchema: ReleaseReadinessInputSchema,
   outputSchema: EnvAuditOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_1", "qwen/qwen3.8-27b");
     const prompt = `أنت مهندس أمان ونظم سحابية رئيسي (Principal Cloud Security & Site Reliability Engineer).
 قم بتدقيق الجاهزية البيئية والأمنية للتطبيق قبل إطلاقه على الإنتاج:
 التطبيق: ${inputData.appName}

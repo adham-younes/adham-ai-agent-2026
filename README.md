@@ -2,6 +2,8 @@
 
 Public Eve agent with connector definitions under `agent/connections/`.
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the production runtime, memory, authority, and multi-agent boundaries.
+
 ## Connector discovery
 
 Eve discovers each connector module in `agent/connections/` during the Eve build/deployment process. The repository is public so GitHub-based tools such as ChatGPT and Codex can inspect the source.

@@ -20,8 +20,8 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "adham.ai | منظومة الوكلاء التنفيذية الذكية",
-  description: "منظومة ذكاء اصطناعي متعددة الوكلاء (120B + 2×27B) للبرمجة، إدارة قواعد البيانات، والنشر السحابي مدعومة بمعالجات Groq LPU.",
+  title: "Adham | مساحة عمل ذكية متعددة الوكلاء",
+  description: "مساحة عمل عربية للبحث والتنفيذ البرمجي والتعاون بين الوكلاء مع ذاكرة طويلة المدى.",
 };
 
 export const viewport: Viewport = {

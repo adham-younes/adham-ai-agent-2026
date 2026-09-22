@@ -43,13 +43,13 @@ export const SecurityQualityOutputSchema = z.object({
   finalDeliverable: z.string(),
 });
 
-// Step 1: Spec & Architecture Spike (GPT-OSS 120B)
+// Step 1: Spec & Architecture Spike
 export const specArchitectureStep = createStep({
   id: "spec-architecture-spike",
   inputSchema: SpecInputSchema,
   outputSchema: SpecOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_1", "qwen/qwen3.8-27b");
     const prompt = `أنت كبير مهندسي النظم (Chief Systems Architect). قم بإعداد وثيقة مواصفات معمارية تنفيذية دقيقة (Architecture Spec) للميزة التالية:
 العنوان: ${inputData.featureTitle}
 المتطلبات: ${inputData.userRequirements}
@@ -83,7 +83,7 @@ export const specArchitectureStep = createStep({
   },
 });
 
-// Step 2: Database Schema & Migration Spike (Qwen 27B)
+// Step 2: Database Schema & Migration Spike
 export const databaseSchemaStep = createStep({
   id: "database-schema-spike",
   inputSchema: SpecOutputSchema,
@@ -114,7 +114,7 @@ export const databaseSchemaStep = createStep({
   },
 });
 
-// Step 3: Full-Stack Code Implementation (Qwen 27B)
+// Step 3: Full-Stack Code Implementation
 export const codeImplementationStep = createStep({
   id: "code-implementation-step",
   inputSchema: DbSchemaOutputSchema,
@@ -147,7 +147,7 @@ ${inputData.sqlSchema}
   },
 });
 
-// Step 4: Security Audit & Quality Gate (Qwen 27B)
+// Step 4: Security Audit & Quality Gate
 export const securityQualityStep = createStep({
   id: "security-quality-audit-step",
   inputSchema: CodeOutputSchema,

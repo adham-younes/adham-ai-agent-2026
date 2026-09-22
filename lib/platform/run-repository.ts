@@ -1,5 +1,5 @@
-import { Pool } from "pg";
 import type { WorkflowId } from "./workflows";
+import { database } from "./database";
 
 export type RunStatus = "running" | "succeeded" | "failed";
 
@@ -12,28 +12,8 @@ export interface WorkflowRunRecord {
   readonly completedAt: string | null;
 }
 
-const connectionString =
-  process.env.POSTGRES_URL ??
-  process.env.SUPABASE_DATABASE_URL ??
-  process.env.DATABASE_URL;
-
-const globalDatabase = globalThis as typeof globalThis & {
-  agentPlatformPool?: Pool;
-};
-
-const pool = connectionString
-  ? (globalDatabase.agentPlatformPool ??=
-      new Pool({
-        connectionString,
-        max: 2,
-        idleTimeoutMillis: 10_000,
-        connectionTimeoutMillis: 5_000,
-        ssl: connectionString.includes("localhost") ? undefined : { rejectUnauthorized: false },
-      }))
-  : undefined;
-
 export function hasDurableRunStore(): boolean {
-  return pool !== undefined;
+  return database !== undefined;
 }
 
 export async function createWorkflowRun(input: {
@@ -42,8 +22,8 @@ export async function createWorkflowRun(input: {
   readonly workflowId: WorkflowId;
   readonly inputData: unknown;
 }): Promise<void> {
-  if (!pool) return;
-  await pool.query(
+  if (!database) return;
+  await database.query(
     `insert into public.agent_workflow_runs
       (id, user_id, workflow_id, status, input_data)
      values ($1, $2, $3, 'running', $4::jsonb)`,
@@ -58,8 +38,8 @@ export async function completeWorkflowRun(input: {
   readonly outputData?: unknown;
   readonly errorMessage?: string;
 }): Promise<void> {
-  if (!pool) return;
-  await pool.query(
+  if (!database) return;
+  await database.query(
     `update public.agent_workflow_runs
        set status = $2,
            duration_ms = $3,
@@ -78,8 +58,8 @@ export async function completeWorkflowRun(input: {
 }
 
 export async function listWorkflowRuns(userId: string, limit = 12): Promise<WorkflowRunRecord[]> {
-  if (!pool) return [];
-  const result = await pool.query<{
+  if (!database) return [];
+  const result = await database.query<{
     id: string;
     workflow_id: WorkflowId;
     status: RunStatus;
@@ -103,4 +83,3 @@ export async function listWorkflowRuns(userId: string, limit = 12): Promise<Work
     completedAt: row.completed_at?.toISOString() ?? null,
   }));
 }
-

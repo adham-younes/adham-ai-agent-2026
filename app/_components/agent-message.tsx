@@ -10,7 +10,7 @@ import type {
 import { useState } from "react";
 import {
   ArrowRightIcon,
-  BotIcon,
+  SparklesIcon,
   CheckCircleIcon,
   CheckIcon,
   ExternalLinkIcon,
@@ -76,14 +76,11 @@ export function AgentMessage({
     >
       <MessageContent>
         {message.role === "assistant" ? (
-          <div className="mb-2.5 flex items-center gap-2 text-xs text-zinc-400">
-            <div className="flex size-5.5 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-              <BotIcon className="size-3.5" />
+          <div className="mb-3 flex items-center gap-2 text-xs text-zinc-500">
+            <div className="flex size-5.5 items-center justify-center rounded-md bg-white/[0.05] text-zinc-300">
+              <SparklesIcon className="size-3.5" />
             </div>
-            <span className="font-semibold text-zinc-200">adham.ai</span>
-            <span className="rounded border border-zinc-800 bg-zinc-900/90 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">
-              GPT-OSS 120B · Groq LPU
-            </span>
+            <span className="font-medium text-zinc-300">Adham</span>
           </div>
         ) : null}
         {message.parts.map((part, index) =>

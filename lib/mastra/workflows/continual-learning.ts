@@ -74,14 +74,14 @@ export const episodeIngestionStep = createStep({
   inputSchema: ContinualLearningInputSchema,
   outputSchema: EpisodeIngestionOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_1", "qwen/qwen3.8-27b");
     const episodeTask = inputData.episodeTask || inputData.task || "المهمة الهندسية المسجلة";
     const episodeDomain = inputData.episodeDomain || inputData.domain || "backend-database";
     const episodeEnvironment = inputData.episodeEnvironment || inputData.environment || "production";
     const targetNewContext = inputData.targetNewContext || "تطبيق نفس القاعدة على منصة مزادات حية عالية السرعة";
 
     const prompt = `أنت مهندس التعلم المستمر والتقييم النظمي (Continual Learning & Evaluation Engineer).
-قم بتحليل التجربة الميدانية السابقة وفق الهيكل الرباعي للدكتورة مريم ميرادي:
+قم بتحليل التجربة الميدانية السابقة وفق الهيكل الرباعي المعتمد:
 [السياق - Context]: المهمة: ${episodeTask} | المجال: ${episodeDomain} | البيئة: ${episodeEnvironment}
 [القرار - Decision]: ${inputData.decisionTaken}
 [الواقع الميداني - Reality]: ${inputData.observedReality}
@@ -174,7 +174,7 @@ export const contextGatingStep = createStep({
     // Evaluate mathematically through our Context Gate Engine
     const gateDecision = evaluateContextGate(inputData.targetNewContext, mockRule, 0.70);
 
-    const model = getGroqModel("GROQ_API_KEY_3", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_3", "qwen/qwen3.8-27b");
     const prompt = `أنت حارس بوابات السياق ومنع النقل السلبي (Context Gatekeeper & Safety Lead).
 تم فحص القاعدة المستخلصة التالية:
 العنوان: ${inputData.ruleTitle}

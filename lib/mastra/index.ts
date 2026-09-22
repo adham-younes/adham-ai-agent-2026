@@ -18,6 +18,7 @@ export const mastra = new Mastra({
     ? new PostgresStore({
         id: "adham-ai-pg",
         connectionString: dbUrl,
+        schemaName: "mastra",
       })
     : undefined,
   workflows: {

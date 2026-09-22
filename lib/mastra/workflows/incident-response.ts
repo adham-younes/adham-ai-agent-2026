@@ -77,7 +77,7 @@ export const incidentTriageStep = createStep({
   inputSchema: IncidentResponseInputSchema,
   outputSchema: TriageOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_1", "qwen/qwen3.8-27b");
     const prompt = `أنت قائد الاستجابة للطوارئ ومهندس الموثوقية الأول (Site Reliability Engineering Lead - Incident Commander).
 وقع حادث تشغيلي في بيئة الإنتاج:
 العنوان: ${inputData.incidentTitle}
@@ -152,7 +152,7 @@ export const mitigationRunbookStep = createStep({
   inputSchema: RcaOutputSchema,
   outputSchema: MitigationOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_3", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_3", "qwen/qwen3.8-27b");
     const prompt = `أنت مهندس استعادة الأنظمة والتشغيل الفوري (Site Recovery & Surgical Hotfix Specialist).
 بناءً على التشخيص الجذري التالي للحادث [${inputData.incidentTitle}]:
 ${inputData.rcaDiagnosis}
@@ -188,7 +188,7 @@ export const postMortemStep = createStep({
   inputSchema: MitigationOutputSchema,
   outputSchema: PostMortemOutputSchema,
   execute: async ({ inputData }) => {
-    const model = getGroqModel("GROQ_API_KEY_1", "openai/gpt-oss-120b");
+    const model = getGroqModel("GROQ_API_KEY_1", "qwen/qwen3.8-27b");
     const prompt = `أنت رئيس هندسة الموثوقية (VP of Site Reliability Engineering).
 قم بإعداد وثيقة "مراجعة ما بعد الحادث غير اللائمة" (Executive Blameless Post-Mortem) بصيغة Markdown قياسية كاملة للحادث التالي:
 عنوان الحادث: ${inputData.incidentTitle}

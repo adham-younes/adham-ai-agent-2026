@@ -20,7 +20,7 @@ export default defineTool({
     criticalIntegrations: z
       .string()
       .optional()
-      .default("Groq LPU Swarm, Supabase PostgreSQL, Vercel Edge")
+      .default("AI runtime, Supabase PostgreSQL, Vercel")
       .describe("الخدمات السحابية والربط الحرج"),
   }),
   label: {

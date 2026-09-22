@@ -1,6 +1,6 @@
 "use client";
 
-import { BotIcon, CpuIcon, LogOutIcon, ShieldCheckIcon, ZapIcon } from "lucide-react";
+import { CpuIcon, LogOutIcon, ShieldCheckIcon } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,13 +57,13 @@ export function SignIn() {
               EXECUTIVE
             </span>
           </div>
-          <p className="text-xs text-zinc-400">منظومة الوكلاء الذكية متعددة النماذج (120B + 2×27B)</p>
+          <p className="text-xs text-zinc-400">مساحة عمل ذكية للبحث والتنفيذ والتعاون</p>
           <div className="mt-2 inline-flex items-center justify-center gap-2 self-center rounded-full border border-zinc-800 bg-zinc-900/90 px-3 py-1 text-xs text-zinc-300">
             <span className="relative flex size-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-[11px] font-medium">Groq LPU جاهز للعمل</span>
+            <span className="text-[11px] font-medium">النظام جاهز للعمل</span>
           </div>
         </div>
 
