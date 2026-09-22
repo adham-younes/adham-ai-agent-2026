@@ -173,9 +173,9 @@ ${inputData.generatedCode}
 
     return {
       featureTitle: inputData.featureTitle,
-      auditStatus: "PASSED" as const,
+      auditStatus: "WARNING" as const,
       securityReport: text,
-      finalDeliverable: `تم تدقيق واعتماد تسليم الميزة [${inputData.featureTitle}] بنجاح وفق معايير Antigravity Prime الهندسية.`,
+      finalDeliverable: `اكتملت مراجعة الميزة [${inputData.featureTitle}] نظرياً. يلزم تطبيق الكود وتشغيل فحوص حتمية على مساحة العمل قبل اعتمادها للإنتاج.`,
     };
   },
 });

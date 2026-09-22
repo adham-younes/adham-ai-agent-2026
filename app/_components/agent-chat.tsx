@@ -263,7 +263,7 @@ function Welcome({
           ابدأ بالهدف.<br /><span className="text-zinc-500">وسنحوّله إلى عمل منجز.</span>
         </h1>
         <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-500">
-          بحث مباشر، تنفيذ كود معزول، ذاكرة مستدامة، وفريق متخصص يعمل تحت منسّق واحد.
+          بحث مباشر، مساحة Linux دائمة، تثبيت ذاتي للأدوات، وذاكرة مستدامة تحت منسّق واحد.
         </p>
 
         <div className="mt-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -305,7 +305,7 @@ function Sidebar({
       <p className="section-label mt-6">القدرات</p>
       <nav className="mt-2 space-y-1">
         <SideItem icon={Globe2Icon} label="بحث لحظي" />
-        <SideItem icon={TerminalSquareIcon} label="تشغيل الكود" />
+        <SideItem icon={TerminalSquareIcon} label="Linux دائم ومعزول" />
         <SideItem icon={BrainIcon} label="ذاكرة مستدامة" />
         <SideItem icon={UsersIcon} label="فريق متعدد الوكلاء" />
       </nav>

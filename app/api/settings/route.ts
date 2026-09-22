@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 const settingsSchema = z.object({
   systemPrompt: z.string().trim().min(1).max(8_000),
-  memoryEnabled: z.boolean(),
+  memoryEnabled: z.literal(true).default(true),
 });
 
 async function currentUserId(): Promise<string | null> {

@@ -2,7 +2,7 @@
 
 ## Runtime topology
 
-The root coordinator owns the user conversation and delegates bounded work to four durable specialists:
+The root coordinator owns the user conversation and delegates bounded work to five durable specialists:
 
 - `planner`: requirements, boundaries, contracts, and acceptance criteria.
 - `researcher`: live web research with source links.
@@ -14,14 +14,17 @@ The existing analyst remains available for deep analysis, while deterministic en
 ## Context and memory
 
 - Static system rules stay in `agent/instructions.md` and are intentionally short.
-- Per-user system instructions are stored in PostgreSQL and resolved once when a session starts.
+- Per-user system instructions are stored in PostgreSQL and resolved as system-role instructions at the start of every turn, so edits apply without opening a new session.
 - Eve file memory recalls durable per-principal facts before a turn and stores them in a private Vercel Blob resource.
+- Persistent memory is server-enforced and cannot be disabled by a client payload.
 - Session history remains durable through Eve. Tool outputs and optional procedures do not enter the permanent prompt unless they are needed.
 
 ## Actions and authority
 
 - Live search and page retrieval are read-only tools.
-- Code runs inside the Eve sandbox rather than the application process.
+- Code runs inside a durable Eve Linux sandbox rather than the application process. Local development prefers a long-lived Docker container; Vercel uses a resumable Linux microVM because hosted functions cannot run a Docker daemon.
+- Declared specialists share the coordinator's `/workspace`, installed packages, files, and running processes.
+- Passwordless `sudo` is available only inside the sandbox. Package names are validated before typed installation.
 - External connections keep their own authorization boundary.
 - The coordinator must request human approval for sensitive or irreversible actions.
 - Tool failures receive at most two corrected attempts before escalation.

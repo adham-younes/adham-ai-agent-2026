@@ -75,7 +75,7 @@ export function AgentSettingsDialog({
           </div>
           <DialogTitle>إعدادات الوكيل</DialogTitle>
           <DialogDescription className="text-zinc-500">
-            تعليماتك الدائمة تُطبّق على الجلسات الجديدة وتبقى خاصة بحسابك.
+            تعليماتك الدائمة تُطبّق مع بداية كل طلب وتبقى خاصة بحسابك.
           </DialogDescription>
         </DialogHeader>
 
@@ -100,7 +100,7 @@ export function AgentSettingsDialog({
               <BrainIcon className="size-4 text-violet-300" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-zinc-300">ذاكرة طويلة المدى</p>
-                <p className="mt-0.5 text-[11px] text-zinc-600">مفعّلة ومفصولة حسب حساب المستخدم.</p>
+                <p className="mt-0.5 text-[11px] text-zinc-600">مفعّلة دائماً ومفصولة حسب حساب المستخدم.</p>
               </div>
               <span className="size-2 rounded-full bg-emerald-400" />
             </div>

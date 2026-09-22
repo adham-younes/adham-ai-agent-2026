@@ -33,7 +33,7 @@ export async function getUserAgentSettings(userId: string): Promise<UserAgentSet
   return row
     ? {
         systemPrompt: row.system_prompt,
-        memoryEnabled: row.memory_enabled,
+        memoryEnabled: true,
         updatedAt: row.updated_at.toISOString(),
       }
     : { systemPrompt: DEFAULT_SYSTEM_PROMPT, memoryEnabled: true, updatedAt: null };
@@ -46,7 +46,7 @@ export async function saveUserAgentSettings(
   if (!database) {
     const value = {
       systemPrompt: settings.systemPrompt,
-      memoryEnabled: settings.memoryEnabled,
+      memoryEnabled: true,
       updatedAt: new Date().toISOString(),
     };
     localSettings.set(userId, value);
@@ -64,13 +64,13 @@ export async function saveUserAgentSettings(
            memory_enabled = excluded.memory_enabled,
            updated_at = now()
      returning system_prompt, memory_enabled, updated_at`,
-    [userId, settings.systemPrompt, settings.memoryEnabled],
+    [userId, settings.systemPrompt, true],
   );
   const row = result.rows[0];
   if (!row) throw new Error("Settings were not saved");
   return {
     systemPrompt: row.system_prompt,
-    memoryEnabled: row.memory_enabled,
+    memoryEnabled: true,
     updatedAt: row.updated_at.toISOString(),
   };
 }
