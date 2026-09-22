@@ -33,6 +33,16 @@ pnpm install
 pnpm dev:eve
 ```
 
+Copy `.env.example` to `.env.local` and configure the required providers. Without
+`POSTGRES_URL`, local workflow state is intentionally ephemeral.
+
+## Data model
+
+Workflow execution metadata is stored in `public.agent_workflow_runs`. Apply the
+SQL migrations in `db/migrations/` to the production Supabase project before
+enabling `POSTGRES_URL`. The table is server-owned: browser roles have no grants,
+RLS is forced, and access is limited to explicit server roles.
+
 ## Deploy
 
 ```bash

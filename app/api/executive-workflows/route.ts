@@ -1,151 +1,148 @@
+import { randomUUID } from "node:crypto";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { mastra } from "@/lib/mastra";
+import {
+  completeWorkflowRun,
+  createWorkflowRun,
+  hasDurableRunStore,
+  listWorkflowRuns,
+} from "@/lib/platform/run-repository";
+import {
+  resolveWorkflow,
+  validateWorkflowInput,
+  workflowCatalog,
+  workflowRequestSchema,
+} from "@/lib/platform/workflows";
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const runId = searchParams.get("runId");
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
+const MAX_REQUEST_BYTES = 256_000;
+
+async function getPrincipalId(): Promise<string | null> {
+  if (process.env.NODE_ENV === "development") return "local-development";
+  const session = await auth.api.getSession({ headers: await headers() });
+  return session?.user.id ?? null;
+}
+
+export async function GET(request: Request) {
+  const principalId = await getPrincipalId();
+  if (!principalId) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const includeHistory = url.searchParams.get("history") === "1";
+  const history = includeHistory ? await listWorkflowRuns(principalId) : [];
 
   return NextResponse.json({
     status: "online",
-    engine: "Mastra Autonomous DAG Swarm",
-    storage: process.env.POSTGRES_URL || process.env.SUPABASE_DATABASE_URL ? "PostgresStore (Durable)" : "InMemoryStore (Ephemeral)",
-    supportedPipelines: [
-      {
-        id: "feature-delivery",
-        name: "تسليم الميزات الكاملة (Full-Stack Feature Delivery)",
-        steps: 4,
-      },
-      {
-        id: "database-engineering",
-        name: "هندسة قواعد البيانات (Database & RLS Engineering)",
-        steps: 3,
-      },
-      {
-        id: "code-audit-repair",
-        name: "التدقيق البرمجي والإصلاح الجراحي (Code Audit & Surgical Repair)",
-        steps: 2,
-      },
-      {
-        id: "release-readiness",
-        name: "جاهزية النشر والإصدار السحابي (Release Readiness & Deployment)",
-        steps: 3,
-      },
-      {
-        id: "architecture-evaluation",
-        name: "التقييم المعماري وسجلات ADRs (Architecture Evaluation & ADRs)",
-        steps: 3,
-      },
-      {
-        id: "incident-response",
-        name: "الاستجابة للحوادث و SRE (Incident Response & Post-Mortem)",
-        steps: 4,
-      },
-      {
-        id: "continual-learning",
-        name: "التعلم المستمر وبوابة السياق (Context-Gated Continual Learning)",
-        steps: 3,
-      },
-    ],
-    queriedRunId: runId ?? null,
+    engine: "Mastra deterministic workflows",
+    storage: hasDurableRunStore() ? "postgres" : "ephemeral",
+    models: {
+      orchestrator: Boolean(process.env.GROQ_API_KEY_1 || process.env.GROQ_API_KEY),
+      executor: Boolean(process.env.GROQ_API_KEY_2 || process.env.GROQ_API_KEY),
+      analyst: Boolean(process.env.GROQ_API_KEY_3 || process.env.GROQ_API_KEY),
+    },
+    workflows: workflowCatalog,
+    history,
   });
 }
 
-export async function POST(req: Request) {
-  const startTime = performance.now();
+export async function POST(request: Request) {
+  const startedAt = performance.now();
+  const principalId = await getPrincipalId();
+  if (!principalId) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const contentLength = Number(request.headers.get("content-length") ?? 0);
+  if (contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json({ error: "REQUEST_TOO_LARGE" }, { status: 413 });
+  }
+
+  let body: unknown;
   try {
-    const body = await req.json();
-    const { workflowId, inputData } = body;
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+  }
 
-    if (!workflowId || !inputData) {
-      return NextResponse.json(
-        { error: "workflowId and inputData are required parameters." },
-        { status: 400 },
-      );
-    }
+  const requestResult = workflowRequestSchema.safeParse(body);
+  if (!requestResult.success) {
+    return NextResponse.json(
+      { error: "INVALID_REQUEST", issues: requestResult.error.issues },
+      { status: 400 },
+    );
+  }
 
-    let workflowKey:
-      | "featureDeliveryWorkflow"
-      | "databaseEngineeringWorkflow"
-      | "codeAuditAndRepairWorkflow"
-      | "releaseDeploymentWorkflow"
-      | "architectureEvaluationWorkflow"
-      | "incidentResponseWorkflow"
-      | "continualLearningWorkflow";
+  const workflow = resolveWorkflow(requestResult.data.workflowId);
+  if (!workflow) {
+    return NextResponse.json(
+      { error: "UNKNOWN_WORKFLOW", supported: workflowCatalog.map(({ id }) => id) },
+      { status: 404 },
+    );
+  }
 
-    if (
-      workflowId === "feature-delivery" ||
-      workflowId === "featureDeliveryWorkflow"
-    ) {
-      workflowKey = "featureDeliveryWorkflow";
-    } else if (
-      workflowId === "database-engineering" ||
-      workflowId === "databaseEngineeringWorkflow"
-    ) {
-      workflowKey = "databaseEngineeringWorkflow";
-    } else if (
-      workflowId === "code-audit-repair" ||
-      workflowId === "codeAuditAndRepairWorkflow"
-    ) {
-      workflowKey = "codeAuditAndRepairWorkflow";
-    } else if (
-      workflowId === "release-readiness" ||
-      workflowId === "releaseDeploymentWorkflow"
-    ) {
-      workflowKey = "releaseDeploymentWorkflow";
-    } else if (
-      workflowId === "architecture-evaluation" ||
-      workflowId === "architectureEvaluationWorkflow"
-    ) {
-      workflowKey = "architectureEvaluationWorkflow";
-    } else if (
-      workflowId === "incident-response" ||
-      workflowId === "incidentResponseWorkflow"
-    ) {
-      workflowKey = "incidentResponseWorkflow";
-    } else if (
-      workflowId === "continual-learning" ||
-      workflowId === "continualLearningWorkflow"
-    ) {
-      workflowKey = "continualLearningWorkflow";
-    } else {
-      return NextResponse.json(
-        {
-          error: `Unknown workflowId: ${workflowId}. Supported: feature-delivery, database-engineering, code-audit-repair, release-readiness, architecture-evaluation, incident-response, continual-learning`,
-        },
-        { status: 404 },
-      );
-    }
+  const inputResult = validateWorkflowInput(workflow.id, requestResult.data.inputData);
+  if (!inputResult.success) {
+    return NextResponse.json(
+      { error: "INVALID_WORKFLOW_INPUT", issues: inputResult.error.issues },
+      { status: 422 },
+    );
+  }
 
-    let workflowInput = inputData;
-    if (workflowKey === "continualLearningWorkflow") {
-      workflowInput = {
-        episodeTask: inputData.episodeTask || inputData.task || "استيعاب واقعة هندسية في الذاكرة العرضية",
-        episodeDomain: inputData.episodeDomain || inputData.domain || "backend-database",
-        episodeEnvironment: inputData.episodeEnvironment || inputData.environment || "production",
-        decisionTaken: inputData.decisionTaken || "تطبيق إجراء هندسي مدروس",
-        observedReality: inputData.observedReality || "تحسن الأداء واستقرار النظام",
-        targetNewContext: inputData.targetNewContext || "production serverless high-load checkout",
-      };
-    }
+  const auditId = randomUUID();
+  try {
+    await createWorkflowRun({
+      id: auditId,
+      userId: principalId,
+      workflowId: workflow.id,
+      inputData: inputResult.data,
+    });
 
-    const workflow = mastra.getWorkflow(workflowKey);
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: workflowInput });
-    const durationMs = Math.round(performance.now() - startTime);
+    const workflowInstance = mastra.getWorkflow(workflow.key) as unknown as {
+      createRun(): Promise<{
+        readonly runId: string;
+        start(input: { readonly inputData: unknown }): Promise<unknown>;
+      }>;
+    };
+    const run = await workflowInstance.createRun();
+    const result = await run.start({ inputData: inputResult.data });
+    const durationMs = Math.round(performance.now() - startedAt);
+
+    await completeWorkflowRun({
+      id: auditId,
+      status: "succeeded",
+      durationMs,
+      outputData: result,
+    });
 
     return NextResponse.json({
       success: true,
-      workflowId,
+      workflowId: workflow.id,
       runId: run.runId,
+      auditId,
       durationMs,
       result,
     });
   } catch (error: unknown) {
-    const message =
-      error instanceof Error ? error.message : "Workflow execution failed.";
-    const durationMs = Math.round(performance.now() - startTime);
+    const durationMs = Math.round(performance.now() - startedAt);
+    const message = error instanceof Error ? error.message : "Workflow execution failed.";
+    try {
+      await completeWorkflowRun({
+        id: auditId,
+        status: "failed",
+        durationMs,
+        errorMessage: message,
+      });
+    } catch {
+      // Preserve the original workflow failure when audit persistence also fails.
+    }
     return NextResponse.json(
-      { success: false, error: message, durationMs },
+      { success: false, error: "WORKFLOW_EXECUTION_FAILED", message, auditId, durationMs },
       { status: 500 },
     );
   }
