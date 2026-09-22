@@ -32,6 +32,36 @@ function decodeResultUrl(value: string): string {
   }
 }
 
+type SearchResult = { title: string; url: string; snippet: string };
+
+function parseBingRss(xml: string, limit: number): SearchResult[] {
+  return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
+    .slice(0, limit)
+    .map((item) => {
+      const body = item[1] ?? "";
+      const value = (tag: string) =>
+        decodeHtml(body.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i"))?.[1] ?? "");
+      return {
+        title: value("title"),
+        url: value("link"),
+        snippet: value("description").slice(0, 600),
+      };
+    })
+    .filter((result) => result.title && result.url);
+}
+
+function parseDuckDuckGo(html: string, limit: number): SearchResult[] {
+  const resultPattern = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+  return [...html.matchAll(resultPattern)]
+    .slice(0, limit)
+    .map((match) => ({
+      title: decodeHtml(match[2] ?? ""),
+      url: decodeResultUrl(match[1] ?? ""),
+      snippet: decodeHtml(match[3] ?? "").slice(0, 600),
+    }))
+    .filter((result) => result.title && result.url);
+}
+
 export default defineTool({
   description: "ابحث لحظياً في الويب وأعد نتائج حديثة بعناوين وروابط ومقتطفات. استخدمه للحقائق المتغيرة والأخبار والمراجع الحالية.",
   inputSchema,
@@ -39,23 +69,24 @@ export default defineTool({
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12_000);
     try {
-      const endpoint = new URL("https://html.duckduckgo.com/html/");
-      endpoint.searchParams.set("q", input.query);
-      const response = await fetch(endpoint, {
-        headers: { "accept-language": "ar,en;q=0.8", "user-agent": "Mozilla/5.0 (compatible; AdhamAgent/3.0)" },
-        signal: controller.signal,
-      });
-      if (!response.ok) throw new Error(`Search provider returned ${response.status}`);
-      const html = await response.text();
-      const resultPattern = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]+class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
-      const results = [...html.matchAll(resultPattern)]
-        .slice(0, input.limit)
-        .map((match) => ({
-          title: decodeHtml(match[2] ?? ""),
-          url: decodeResultUrl(match[1] ?? ""),
-          snippet: decodeHtml(match[3] ?? "").slice(0, 600),
-        }))
-        .filter((result) => result.title && result.url);
+      const headers = {
+        "accept-language": "ar,en;q=0.8",
+        "user-agent": "Mozilla/5.0 (compatible; AdhamAgent/3.0)",
+      };
+      const bing = new URL("https://www.bing.com/search");
+      bing.searchParams.set("q", input.query);
+      bing.searchParams.set("format", "rss");
+      const bingResponse = await fetch(bing, { headers, signal: controller.signal });
+      let results = bingResponse.ok ? parseBingRss(await bingResponse.text(), input.limit) : [];
+
+      if (results.length === 0) {
+        const duckDuckGo = new URL("https://html.duckduckgo.com/html/");
+        duckDuckGo.searchParams.set("q", input.query);
+        const duckResponse = await fetch(duckDuckGo, { headers, signal: controller.signal });
+        if (duckResponse.ok) results = parseDuckDuckGo(await duckResponse.text(), input.limit);
+      }
+
+      if (results.length === 0) throw new Error("Search providers returned no usable results");
       return { query: input.query, searchedAt: new Date().toISOString(), results };
     } finally {
       clearTimeout(timeout);
