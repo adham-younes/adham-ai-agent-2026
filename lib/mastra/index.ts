@@ -1,5 +1,6 @@
 import { Mastra } from "@mastra/core";
 import { PostgresStore } from "@mastra/pg";
+import { normalizePostgresUrl } from "../platform/database";
 import { featureDeliveryWorkflow } from "./workflows/feature-delivery";
 import { databaseEngineeringWorkflow } from "./workflows/database-engineering";
 import { codeAuditAndRepairWorkflow } from "./workflows/code-audit-repair";
@@ -17,7 +18,8 @@ export const mastra = new Mastra({
   storage: dbUrl
     ? new PostgresStore({
         id: "adham-ai-pg",
-        connectionString: dbUrl,
+        connectionString: normalizePostgresUrl(dbUrl),
+        ssl: { rejectUnauthorized: false },
         schemaName: "mastra",
       })
     : undefined,
