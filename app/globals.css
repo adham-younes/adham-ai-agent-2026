@@ -136,6 +136,31 @@ button.nav-item:hover,button.nav-item:focus-visible { outline: none; background:
 .settings-entry strong { color: #d4d4d8; font-size: 11px; font-weight: 550; }
 .settings-entry small { margin-top: 2px; color: #5e6067; font-size: 10px; }
 
+.welcome-stage { background: radial-gradient(ellipse at 18% 42%, rgb(34 80 63 / 12%), transparent 44%); }
+.welcome-layout { display: grid; grid-template-columns: minmax(0,1.12fr) minmax(300px,.88fr); gap: clamp(3rem,6vw,7rem); align-items: center; }
+.welcome-intro { min-width: 0; }
+.welcome-identity { display: flex; align-items: center; gap: 9px; color: #7b9188; font-size: 11px; font-weight: 550; }
+.welcome-identity span:last-child { margin-inline-start: auto; color: #52645c; font: 10px var(--font-mono); }
+.welcome-signal { width: 7px; height: 7px; border-radius: 50%; background: #74d7a1; box-shadow: 0 0 15px rgb(116 215 161 / 50%); }
+.welcome-eyebrow { margin: 2.3rem 0 .75rem; color: #87d9a8; font-size: 12px; font-weight: 700; letter-spacing: .24em; }
+.welcome-title { margin: 0; color: #eff5f0; font-size: clamp(2.7rem,4vw,4.9rem); font-weight: 650; line-height: 1.24; letter-spacing: -.055em; }
+.welcome-title span { color: #68746e; }
+.welcome-description { max-width: 450px; margin: 1.5rem 0 0; color: #89958e; font-size: 14px; line-height: 2; }
+.welcome-search { display: flex; width: min(100%,420px); align-items: center; gap: 12px; margin-top: 2.2rem; border-bottom: 1px solid rgb(116 215 161 / 45%); padding: 0 0 13px; color: #b7e8c9; font-size: 13px; text-align: start; transition: color 150ms ease, border-color 150ms ease; }
+.welcome-search:hover,.welcome-search:focus-visible { outline: 0; border-color: #b7e8c9; color: #fff; }
+.welcome-missions { min-width: 0; border-top: 1px solid rgb(255 255 255 / 15%); }
+.missions-heading { display: flex; justify-content: space-between; gap: 12px; padding: 18px 1px 15px; color: #d6ddd7; font-size: 12px; font-weight: 600; }
+.missions-heading span:last-child { color: #66776e; font: 10px var(--font-mono); }
+.mission-row { display: flex; width: 100%; align-items: center; gap: 14px; border-top: 1px solid rgb(255 255 255 / 8%); padding: 18px 2px; text-align: start; transition: padding 160ms ease, background 160ms ease; }
+.mission-row:hover,.mission-row:focus-visible { outline: 0; padding-inline: 9px; background: rgb(103 184 137 / 5%); }
+.mission-index { width: 24px; flex: none; color: #5d6d64; font: 10px var(--font-mono); }
+.mission-icon { flex: none; color: #8db6a0; }
+.mission-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.mission-copy strong { color: #e5ece6; font-size: 14px; font-weight: 550; }
+.mission-copy small { color: #657168; font-size: 11px; }
+.mission-arrow { color: #668874; opacity: 0; transform: translate(3px,3px); transition: opacity 160ms ease, transform 160ms ease; }
+.mission-row:hover .mission-arrow,.mission-row:focus-visible .mission-arrow { opacity: 1; transform: translate(0,0); }
+.missions-footer { border-top: 1px solid rgb(255 255 255 / 8%); padding-top: 17px; color: #54645a; font-size: 11px; }
 .welcome-orb {
   display: flex;
   width: 42px;
@@ -215,7 +240,18 @@ pre { max-width: 100%; overflow-x: auto; }
 .is-assistant [data-streamdown="code-block-container"] { border: 0; box-shadow: none; }
 .is-assistant [data-streamdown="code-block-body"] { border-color: rgb(255 255 255 / 7%); }
 
+@media (max-width: 899px) {
+  .welcome-layout { display: block; max-width: 660px; padding-top: 30px; }
+  .welcome-missions { margin-top: 3rem; }
+}
 @media (max-width: 639px) {
+  .welcome-layout { display: block; padding-top: 32px; padding-bottom: 30px; }
+  .welcome-title { font-size: 2.55rem; }
+  .welcome-eyebrow { margin-top: 1.7rem; }
+  .welcome-description { font-size: 13px; }
+  .welcome-search { margin-top: 1.5rem; }
+  .welcome-missions { margin-top: 3rem; }
+  .mission-row { padding-block: 13px; }
   .topbar { min-height: 54px; padding-inline: 8px; }
   .composer-wrap { padding-inline: 9px; }
   .composer-shell { border-radius: 15px; padding: 6px; }

@@ -5,6 +5,7 @@ import { useEveAgent } from "eve/react";
 import {
   ActivityIcon,
   AlertCircleIcon,
+  ArrowUpLeftIcon,
   BrainIcon,
   Code2Icon,
   DatabaseIcon,
@@ -255,31 +256,33 @@ function Welcome({
   readonly onPrompt: (prompt: string) => void;
 }) {
   return (
-    <div className="flex flex-1 overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-4xl flex-col justify-center px-5 pb-8 pt-12 sm:px-8">
-        <div className="welcome-orb">A</div>
-        <p className="mt-6 text-xs font-semibold tracking-[0.2em] text-emerald-300/80" dir="ltr">ADHAM AGENT / WORKSPACE</p>
-        <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-[1.35] tracking-[-0.035em] text-zinc-100 sm:text-5xl">
-          فكّر، ابحث، نفّذ.<br /><span className="text-zinc-500">العمل الحقيقي يبدأ هنا.</span>
-        </h1>
-        <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-500">
-          مساحة عمل موحدة للبحث المباشر والبرمجة والتحقق، مع ذاكرة مستدامة وفريق متخصص عند الحاجة.
-        </p>
-
-        <div className="mt-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {WORKFLOWS.slice(0, 6).map((workflow) => {
+    <div className="welcome-stage flex flex-1 overflow-y-auto">
+      <div className="welcome-layout mx-auto w-full max-w-[1120px] px-5 pb-8 pt-10 sm:px-9 lg:px-14">
+        <section className="welcome-intro">
+          <div className="welcome-identity"><span className="welcome-signal" />مساحة العمل التنفيذية<span dir="ltr">/ 01</span></div>
+          <div className="welcome-orb">A</div>
+          <p className="welcome-eyebrow" dir="ltr">ADHAM AGENT</p>
+          <h1 className="welcome-title">فكّر على نطاق أوسع.<br /><span>نفّذ بدقة أعلى.</span></h1>
+          <p className="welcome-description">من السؤال الأول حتى النتيجة التي يمكن فحصها: بحث مباشر، أدوات برمجية، وذاكرة تتذكر ما يهم عملك.</p>
+          <button className="welcome-search" onClick={() => onPrompt("ابحث لحظياً عن أهم التطورات التقنية اليوم وقدّم لي خلاصة موثقة بالمصادر.")} type="button">
+            <SearchIcon className="size-4" />ابدأ ببحث مباشر<ArrowUpLeftIcon className="ms-auto size-4" />
+          </button>
+        </section>
+        <section className="welcome-missions" aria-label="مسارات العمل">
+          <div className="missions-heading"><span>اختر نقطة البداية</span><span dir="ltr">CAPABILITIES / 06</span></div>
+          {WORKFLOWS.slice(0, 6).map((workflow, index) => {
             const Icon = workflow.icon;
             return (
-              <button className="quick-action" key={workflow.id} onClick={() => onOpenWorkflow(workflow.id)} type="button">
-                <Icon className="size-4 text-zinc-400" />
-                <span className="min-w-0"><strong>{workflow.label}</strong><small>{workflow.hint}</small></span>
+              <button className="mission-row" key={workflow.id} onClick={() => onOpenWorkflow(workflow.id)} type="button">
+                <span className="mission-index" dir="ltr">0{index + 1}</span>
+                <Icon className="mission-icon size-[18px]" />
+                <span className="mission-copy"><strong>{workflow.label}</strong><small>{workflow.hint}</small></span>
+                <ArrowUpLeftIcon className="mission-arrow size-4" />
               </button>
             );
           })}
-        </div>
-        <button className="mt-3 flex w-fit items-center gap-2 text-xs text-zinc-600 transition hover:text-zinc-300" onClick={() => onPrompt("ابحث لحظياً عن أهم التطورات التقنية اليوم وقدّم لي خلاصة موثقة بالمصادر.")} type="button">
-          <SearchIcon className="size-3.5" /> جرّب البحث اللحظي
-        </button>
+          <p className="missions-footer">كل مسار يبدأ بفهم هدفك وينتهي بنتيجة قابلة للمراجعة.</p>
+        </section>
       </div>
     </div>
   );
