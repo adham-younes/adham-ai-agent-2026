@@ -1,5 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
+import { rankSearchResults, type SearchResult } from "@/lib/search-relevance";
 
 const inputSchema = z.object({
   query: z.string().trim().min(2).max(300),
@@ -31,8 +32,6 @@ function decodeResultUrl(value: string): string {
     return absolute;
   }
 }
-
-type SearchResult = { title: string; url: string; snippet: string };
 
 function parseBingRss(xml: string, limit: number): SearchResult[] {
   return [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)]
@@ -81,14 +80,19 @@ export default defineTool({
       const provider = async (url: URL, parse: (body: string, limit: number) => SearchResult[]) => {
         const response = await fetch(url, { headers, signal: controller.signal });
         if (!response.ok) throw new Error(`Search provider returned ${response.status}`);
-        const results = parse(await response.text(), input.limit);
-        if (results.length === 0) throw new Error("Search provider returned no usable results");
+        const results = rankSearchResults(input.query, parse(await response.text(), 24), input.limit);
+        if (results.length === 0) throw new Error("Search provider returned no relevant results");
         return results;
       };
-      const results = await Promise.any([
-        provider(bing, parseBingRss),
-        provider(duckDuckGo, parseDuckDuckGo),
-      ]);
+      let results: SearchResult[];
+      try {
+        results = await Promise.any([
+          provider(bing, parseBingRss),
+          provider(duckDuckGo, parseDuckDuckGo),
+        ]);
+      } catch {
+        return { query: input.query, searchedAt: new Date().toISOString(), results: [], warning: "لم يُرجع مزودا البحث نتائج ذات صلة يمكن الاعتماد عليها. أعد صياغة الاستعلام أو افتح مصدراً معروفاً مباشرة." };
+      }
       return { query: input.query, searchedAt: new Date().toISOString(), results };
     } finally {
       clearTimeout(timeout);
