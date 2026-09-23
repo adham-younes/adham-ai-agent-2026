@@ -71,14 +71,10 @@ export const specArchitectureStep = createStep({
     return {
       featureTitle: inputData.featureTitle,
       architectureSummary: text,
-      userJourney: "تم تخطيط رحلة المستخدم والمسار الحرج بنجاح.",
-      componentTree: "Next.js 16 App Router UI / API / Database Contracts",
-      apiContracts: "Type-safe Zod schema validation",
-      acceptanceCriteria: [
-        "مطابقة نوعيات البيانات بنسبة 100% بدون any",
-        "جاهزية النشر السحابي على Vercel",
-        "حماية سياسات RLS على مستوى الصفوف",
-      ],
+      userJourney: "راجع قسم رحلة المستخدم في المسودة المعمارية؛ لم يُختبر بعد في التطبيق.",
+      componentTree: "راجع هيكل المكونات المقترح في المسودة المعمارية؛ لم تُنشأ ملفات بعد.",
+      apiContracts: "راجع عقود API المقترحة في المسودة المعمارية؛ لم تُنفذ أو تُختبر بعد.",
+      acceptanceCriteria: ["تطبيق الملفات فعلياً", "نجاح فحص الأنواع والبناء", "اختبار الرحلة وسلوك الصلاحيات في بيئة حقيقية"],
     };
   },
 });
@@ -108,8 +104,8 @@ export const databaseSchemaStep = createStep({
       featureTitle: inputData.featureTitle,
       architectureSummary: inputData.architectureSummary,
       sqlSchema: text,
-      rlsPolicies: "تم تدقيق سياسات RLS لعزل المستأجرين بالكامل.",
-      migrationStrategy: "Expand/Contract Safe Migration Protocol",
+      rlsPolicies: "مقترح ضمن مسودة SQL؛ لم تُشغّل السياسات أو تُختبر بعد.",
+      migrationStrategy: "تحتاج خطة هجرة مفصلة واختباراً على نسخة من قاعدة البيانات قبل التنفيذ.",
     };
   },
 });
@@ -141,8 +137,8 @@ ${inputData.sqlSchema}
     return {
       featureTitle: inputData.featureTitle,
       generatedCode: text,
-      typeContracts: "Zod Schemas & TypeScript interfaces generated",
-      verificationChecklist: "Unit test hooks, accessibility (WCAG AA), deterministic render pass",
+      typeContracts: "افحص العقود المقترحة في النص المولد؛ لم يُشغّل فحص أنواع.",
+      verificationChecklist: "طبّق الكود في الملفات، ثم شغّل typecheck والبناء والاختبارات ذات الصلة.",
     };
   },
 });

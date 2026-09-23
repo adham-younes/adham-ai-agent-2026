@@ -67,7 +67,7 @@ export default defineTool({
   inputSchema,
   async execute(input) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12_000);
+    const timeout = setTimeout(() => controller.abort(), 8_000);
     try {
       const headers = {
         "accept-language": "ar,en;q=0.8",
@@ -76,17 +76,19 @@ export default defineTool({
       const bing = new URL("https://www.bing.com/search");
       bing.searchParams.set("q", input.query);
       bing.searchParams.set("format", "rss");
-      const bingResponse = await fetch(bing, { headers, signal: controller.signal });
-      let results = bingResponse.ok ? parseBingRss(await bingResponse.text(), input.limit) : [];
-
-      if (results.length === 0) {
-        const duckDuckGo = new URL("https://html.duckduckgo.com/html/");
-        duckDuckGo.searchParams.set("q", input.query);
-        const duckResponse = await fetch(duckDuckGo, { headers, signal: controller.signal });
-        if (duckResponse.ok) results = parseDuckDuckGo(await duckResponse.text(), input.limit);
-      }
-
-      if (results.length === 0) throw new Error("Search providers returned no usable results");
+      const duckDuckGo = new URL("https://html.duckduckgo.com/html/");
+      duckDuckGo.searchParams.set("q", input.query);
+      const provider = async (url: URL, parse: (body: string, limit: number) => SearchResult[]) => {
+        const response = await fetch(url, { headers, signal: controller.signal });
+        if (!response.ok) throw new Error(`Search provider returned ${response.status}`);
+        const results = parse(await response.text(), input.limit);
+        if (results.length === 0) throw new Error("Search provider returned no usable results");
+        return results;
+      };
+      const results = await Promise.any([
+        provider(bing, parseBingRss),
+        provider(duckDuckGo, parseDuckDuckGo),
+      ]);
       return { query: input.query, searchedAt: new Date().toISOString(), results };
     } finally {
       clearTimeout(timeout);

@@ -52,7 +52,7 @@ ${inputData.codeSnippet}
     return {
       targetFilePath: inputData.targetFilePath,
       codeSnippet: inputData.codeSnippet,
-      vulnerabilitiesFound: ["تم فحص الثغرات والأخطاء المحتملة."],
+      vulnerabilitiesFound: [],
       rootCauseDiagnosis: text,
     };
   },
@@ -87,8 +87,8 @@ ${inputData.codeSnippet}
     return {
       targetFilePath: inputData.targetFilePath,
       repairedCode: text,
-      patchExplanation: "تم استئصال السبب الجذري وإصلاح الكود جراحياً مع الحفاظ على الأداء.",
-      verificationCommand: "pnpm typecheck && pnpm build",
+      patchExplanation: "هذه رقعة مقترحة داخل الرد المولد. لم تُكتب إلى الملف ولم تُختبر؛ راجعها وطبّقها ثم تحقق.",
+      verificationCommand: "شغّل فحص الأنواع والبناء والاختبار المناسب بعد تطبيق الرقعة داخل المشروع.",
     };
   },
 });

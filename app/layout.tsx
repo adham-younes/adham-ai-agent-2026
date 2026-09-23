@@ -20,7 +20,7 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Adham | مساحة عمل ذكية متعددة الوكلاء",
+  title: "ADHAM AGENT | مساحة عمل ذكية",
   description: "مساحة عمل عربية للبحث والتنفيذ البرمجي والتعاون بين الوكلاء مع ذاكرة طويلة المدى.",
 };
 

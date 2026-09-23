@@ -31,7 +31,7 @@ export default defineTool({
     const result = await run.start({ inputData: input });
 
     return {
-      status: "COMPLETED",
+      status: "DRAFT_READY",
       workflowId: "autonomous-architecture-evaluation",
       runId: run.runId,
       result,

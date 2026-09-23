@@ -200,7 +200,7 @@ export function AgentChat({
               {sidebarOpen ? <PanelRightCloseIcon className="size-4" /> : <PanelRightOpenIcon className="size-4" />}
             </Button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-zinc-200">مساحة العمل</p>
+              <p className="truncate text-sm font-semibold tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</p>
               <p className="truncate text-[10px] text-zinc-600">{activeSessionId ? `جلسة ${activeSessionId.slice(0, 8)}` : "محادثة جديدة"}</p>
             </div>
           </div>
@@ -257,13 +257,13 @@ function Welcome({
   return (
     <div className="flex flex-1 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-4xl flex-col justify-center px-5 pb-8 pt-12 sm:px-8">
-        <div className="welcome-orb"><SparklesIcon className="size-5" /></div>
-        <p className="mt-6 text-xs font-medium text-zinc-500">فريق ذكاء تنفيذي</p>
+        <div className="welcome-orb">A</div>
+        <p className="mt-6 text-xs font-semibold tracking-[0.2em] text-emerald-300/80" dir="ltr">ADHAM AGENT / WORKSPACE</p>
         <h1 className="mt-3 max-w-2xl text-3xl font-semibold leading-[1.35] tracking-[-0.035em] text-zinc-100 sm:text-5xl">
-          ابدأ بالهدف.<br /><span className="text-zinc-500">وسنحوّله إلى عمل منجز.</span>
+          فكّر، ابحث، نفّذ.<br /><span className="text-zinc-500">العمل الحقيقي يبدأ هنا.</span>
         </h1>
         <p className="mt-5 max-w-xl text-sm leading-7 text-zinc-500">
-          بحث مباشر، مساحة Linux دائمة، تثبيت ذاتي للأدوات، وذاكرة مستدامة تحت منسّق واحد.
+          مساحة عمل موحدة للبحث المباشر والبرمجة والتحقق، مع ذاكرة مستدامة وفريق متخصص عند الحاجة.
         </p>
 
         <div className="mt-8 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -298,7 +298,7 @@ function Sidebar({
     <div className="flex h-full w-[268px] shrink-0 flex-col overflow-y-auto p-3">
       <div className="flex items-center gap-3 px-2 py-2">
         <div className="brand-mark">A</div>
-        <div><p className="text-sm font-semibold text-zinc-100">Adham</p><p className="text-[10px] text-zinc-600">مساحة الوكلاء</p></div>
+        <div><p className="text-sm font-semibold tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</p><p className="text-[10px] text-zinc-500">مساحة العمل الذكية</p></div>
       </div>
       <Button className="mt-4 w-full justify-start rounded-xl border-white/8 bg-white/[0.035] text-zinc-300" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />محادثة جديدة</Button>
 

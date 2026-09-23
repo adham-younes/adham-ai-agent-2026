@@ -22,7 +22,7 @@ export default defineTool({
     const result = await run.start({ inputData: input });
 
     return {
-      status: "COMPLETED",
+      status: "DRAFT_READY",
       workflowId: "autonomous-feature-delivery",
       runId: run.runId,
       result,

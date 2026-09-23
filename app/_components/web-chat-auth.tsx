@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { authClient } from "@/lib/auth-client";
 
-const AGENT_NAME = "adham-ai-agent-2026";
+const AGENT_NAME = "ADHAM AGENT";
 
 export function SignIn() {
   const [pending, setPending] = useState(false);
@@ -44,15 +44,12 @@ export function SignIn() {
         {/* Logo */}
         <div className="relative mb-5 flex size-14 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
           <CpuIcon className="size-7" />
-          <span className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full bg-zinc-950 border border-emerald-500/40 text-[9px] font-bold text-emerald-400">
-            ⚡
-          </span>
         </div>
 
         {/* Title & Status */}
         <div className="flex flex-col gap-1.5 mb-6">
           <div className="flex items-center justify-center gap-2">
-            <h1 className="font-bold text-xl tracking-tight text-zinc-100">adham.ai</h1>
+            <h1 className="font-bold text-xl tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</h1>
             <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400">
               EXECUTIVE
             </span>
