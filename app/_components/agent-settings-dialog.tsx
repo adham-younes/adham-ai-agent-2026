@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
+import { SignIn } from "./web-chat-auth";
+
 interface Settings {
   readonly systemPrompt: string;
   readonly memoryEnabled: boolean;
@@ -20,7 +22,9 @@ interface Settings {
 export function AgentSettingsDialog({
   open,
   onOpenChange,
+  authenticated = true,
 }: {
+  readonly authenticated?: boolean;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
@@ -29,7 +33,7 @@ export function AgentSettingsDialog({
   const [state, setState] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !authenticated) return;
     const controller = new AbortController();
     setState("loading");
     void fetch("/api/settings", { signal: controller.signal })
@@ -45,7 +49,7 @@ export function AgentSettingsDialog({
         setState("error");
       });
     return () => controller.abort();
-  }, [open]);
+  }, [open, authenticated]);
 
   async function save() {
     if (!settings || !draft.trim()) return;
@@ -69,44 +73,44 @@ export function AgentSettingsDialog({
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent className="border-white/10 bg-[#111214] p-6 text-zinc-100 sm:max-w-xl">
-        <DialogHeader className="text-right">
+        <DialogHeader className="text-left">
           <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-white/[0.06]">
             <SlidersHorizontalIcon className="size-5" />
           </div>
-          <DialogTitle>إعدادات الوكيل</DialogTitle>
+          <DialogTitle>Agent settings</DialogTitle>
           <DialogDescription className="text-zinc-500">
-            تعليماتك الدائمة تُطبّق مع بداية كل طلب وتبقى خاصة بحسابك.
+            Your saved instructions apply to each request and remain private to your account.
           </DialogDescription>
         </DialogHeader>
 
-        {state === "loading" ? (
+        {!authenticated ? <div className="py-6 text-sm text-zinc-400"><p className="mb-4">Sign in to manage your instructions and memory.</p><SignIn /></div> : state === "loading" ? (
           <div className="flex h-48 items-center justify-center text-zinc-500">
             <Loader2Icon className="size-5 animate-spin" />
           </div>
         ) : (
           <>
             <label className="mt-5 block text-xs font-medium text-zinc-400" htmlFor="system-prompt">
-              تعليمات النظام
+              System instructions
             </label>
             <Textarea
               className="mt-2 min-h-48 resize-y border-white/10 bg-black/20 p-4 leading-7 text-zinc-100 placeholder:text-zinc-600"
               id="system-prompt"
               maxLength={8000}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="مثال: أجب بإيجاز، وتحقق من المصادر قبل تقديم أي معلومة حديثة..."
+              placeholder="For example: Be concise and verify sources before sharing current information..."
               value={draft}
             />
             <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/[0.025] px-3 py-3">
-              <BrainIcon className="size-4 text-violet-300" />
+              <BrainIcon className="size-4 text-red-300" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-zinc-300">ذاكرة طويلة المدى</p>
-                <p className="mt-0.5 text-[11px] text-zinc-600">مفعّلة دائماً ومفصولة حسب حساب المستخدم.</p>
+                <p className="text-xs font-medium text-zinc-300">Long-term memory</p>
+                <p className="mt-0.5 text-[11px] text-zinc-600">Memory is isolated to your account.</p>
               </div>
-              <span className="size-2 rounded-full bg-emerald-400" />
+              <span className="size-2 rounded-full bg-red-400" />
             </div>
             <div className="mt-5 flex items-center justify-between gap-3">
               <p className={state === "error" ? "text-xs text-rose-400" : "text-xs text-zinc-600"} role="status">
-                {state === "error" ? "تعذر الحفظ. حاول مجدداً." : `${draft.length.toLocaleString("ar-EG")} / ٨٬٠٠٠`}
+                {state === "error" ? "Unable to load or save settings. Please try again." : `${draft.length.toLocaleString("en-US")} / 8,000`}
               </p>
               <Button
                 className="rounded-xl bg-zinc-100 text-zinc-950 hover:bg-white"
@@ -114,7 +118,7 @@ export function AgentSettingsDialog({
                 onClick={() => void save()}
               >
                 {state === "saving" ? <Loader2Icon className="size-4 animate-spin" /> : state === "saved" ? <CheckIcon className="size-4" /> : null}
-                {state === "saving" ? "جارٍ الحفظ" : state === "saved" ? "تم الحفظ" : "حفظ الإعدادات"}
+                {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : "Save settings"}
               </Button>
             </div>
           </>

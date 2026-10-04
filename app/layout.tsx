@@ -20,18 +20,18 @@ const mono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ADHAM AGENT | مساحة عمل ذكية",
-  description: "مساحة عمل عربية للبحث والتنفيذ البرمجي والتعاون بين الوكلاء مع ذاكرة طويلة المدى.",
+  title: "ADHAM AGENT | Workspace",
+  description: "Your workspace for research, software delivery, and collaboration with AI agents.",
 };
 
 export const viewport: Viewport = {
-  themeColor: "#09090b",
+  themeColor: "#0e0b0b",
 };
 
 // The page and Eve routes validate the generated app's Better Auth session.
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <html className={cn(sans.variable, mono.variable)} dir="rtl" lang="ar">
+    <html className={cn(sans.variable, mono.variable)} dir="ltr" lang="en">
       <body>
         <TooltipProvider>{children}</TooltipProvider>
       </body>

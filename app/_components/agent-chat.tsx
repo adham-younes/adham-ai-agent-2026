@@ -4,25 +4,32 @@ import type { UserContent } from "ai";
 import { useEveAgent } from "eve/react";
 import {
   ActivityIcon,
+  HomeIcon,
+  MessageSquareIcon,
+  LayoutGridIcon,
+  LinkIcon,
+  PlayIcon,
+  CheckIcon,
+  CircleIcon,
+  FileCodeIcon,
+  EyeIcon,
+  PaperclipIcon,
+  SendIcon,
+  TriangleIcon,
   AlertCircleIcon,
-  ArrowUpLeftIcon,
   BrainIcon,
   Code2Icon,
   DatabaseIcon,
   GitBranchIcon,
-  Globe2Icon,
   MenuIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
   PlusIcon,
   RocketIcon,
-  SearchIcon,
   Settings2Icon,
   ShieldCheckIcon,
   SparklesIcon,
   SquareIcon,
-  TerminalSquareIcon,
-  UsersIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -44,6 +51,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { SignIn } from "./web-chat-auth";
 import { AgentMessage } from "./agent-message";
 import { AgentSettingsDialog } from "./agent-settings-dialog";
 import {
@@ -57,13 +65,13 @@ const WORKFLOWS: readonly {
   hint: string;
   icon: React.ElementType;
 }[] = [
-  { id: "feature-delivery", label: "بناء ميزة", hint: "تخطيط وتنفيذ ومراجعة", icon: SparklesIcon },
-  { id: "code-audit-repair", label: "إصلاح كود", hint: "تشخيص واختبار", icon: Code2Icon },
-  { id: "database-engineering", label: "هندسة بيانات", hint: "مخطط وأداء وصلاحيات", icon: DatabaseIcon },
-  { id: "architecture-evaluation", label: "قرار معماري", hint: "بدائل ومقايضات", icon: GitBranchIcon },
-  { id: "incident-response", label: "معالجة حادث", hint: "احتواء وسبب جذري", icon: ActivityIcon },
-  { id: "release-readiness", label: "تجهيز إصدار", hint: "فحص ونشر وتراجع", icon: RocketIcon },
-  { id: "continual-learning", label: "استخلاص معرفة", hint: "ذاكرة محكومة بالسياق", icon: BrainIcon },
+  { id: "feature-delivery", label: "Build a feature", hint: "Plan, implement, and review", icon: SparklesIcon },
+  { id: "code-audit-repair", label: "Code audit & repair", hint: "Diagnose and test", icon: Code2Icon },
+  { id: "database-engineering", label: "Database design", hint: "Schema, performance, and access", icon: DatabaseIcon },
+  { id: "architecture-evaluation", label: "Architecture review", hint: "Options and tradeoffs", icon: GitBranchIcon },
+  { id: "incident-response", label: "Incident response", hint: "Containment and root cause", icon: ActivityIcon },
+  { id: "release-readiness", label: "Deploy to production", hint: "Checks, deployment, and rollback", icon: RocketIcon },
+  { id: "continual-learning", label: "Capture knowledge", hint: "Context-aware memory", icon: BrainIcon },
 ] as const;
 
 interface PlatformStatus {
@@ -74,10 +82,15 @@ interface PlatformStatus {
 export function AgentChat({
   sessionId,
   sessionless = false,
+  authenticated = true,
 }: {
   readonly sessionId?: string;
   readonly sessionless?: boolean;
+  readonly authenticated?: boolean;
 }) {
+  const [demo, setDemo] = useState(false);
+  const [demoTab, setDemoTab] = useState("Changes");
+  const [executionOpen, setExecutionOpen] = useState(false);
   const [cancellationError, setCancellationError] = useState<string>();
   const [hasInputText, setHasInputText] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -134,6 +147,8 @@ export function AgentChat({
   };
 
   const handleSubmit = async (message: PromptInputMessage) => {
+    if (!authenticated) return;
+    setDemo(false);
     const text = message.text.trim();
     if ((text.length === 0 && message.files.length === 0) || isResuming) return;
     setHasInputText(false);
@@ -150,23 +165,25 @@ export function AgentChat({
 
   const composer = (
     <div className="composer-shell">
-      <PromptInput onSubmit={handleSubmit}>
+      {!authenticated ? <div className="composer-auth"><span>Sign in to start a task and save your conversations.</span><SignIn /></div> : null}
+      <PromptInput onSubmit={handleSubmit} multiple>
+        <ComposerAttachments disabled={!authenticated || isResuming} />
         <PromptInputTextarea
-          aria-label="اكتب مهمتك"
-          className="min-h-[68px] resize-none border-none bg-transparent px-3 py-2 text-[15px] leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
-          disabled={isResuming}
+          aria-label="Describe your task"
+          className="min-h-[48px] resize-none border-none bg-transparent px-3 py-2 text-[15px] leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
+          disabled={isResuming || !authenticated}
           onChange={(event) => setHasInputText(event.currentTarget.value.trim().length > 0)}
-          placeholder="ماذا تريد أن ننجز؟"
+          placeholder="Describe the next step..."
         />
-        <div className="flex items-center justify-between px-1 pb-1">
+        <div className="composer-toolbar flex items-center justify-between px-1 pb-1">
           <div className="flex items-center gap-2 text-[11px] text-zinc-600">
             <span className={cn("status-dot", isBusy && "status-dot-busy")} />
-            {isBusy ? "يعمل الآن — يمكنك تعديل الاتجاه" : "جاهز للبحث والتنفيذ"}
+            {isBusy ? "Working — send a follow-up to steer the task" : "Use natural language to plan, build, and run tasks"}
           </div>
           <ComposerAction
             hasInputText={hasInputText}
             isBusy={isBusy}
-            isResuming={isResuming}
+            isResuming={isResuming || !authenticated}
             onCancel={() => {
               setCancellationError(undefined);
               void agent.cancel().catch((error: unknown) => setCancellationError(toErrorMessage(error)));
@@ -179,15 +196,15 @@ export function AgentChat({
 
   return (
     <div className="app-shell">
-      <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[268px]" : "w-0 border-0")}>
+      <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[280px]" : "w-0 border-0")}>
         <Sidebar onOpenSettings={() => setSettingsOpen(true)} onOpenWorkflow={openWorkflow} platform={platform} />
       </aside>
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button aria-label="إغلاق القائمة" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
-          <aside className="sidebar absolute inset-y-0 right-0 flex w-[min(86vw,320px)] shadow-2xl">
-            <Button aria-label="إغلاق القائمة" className="absolute left-3 top-3 z-10" onClick={() => setMobileOpen(false)} size="icon-sm" variant="ghost"><XIcon className="size-4" /></Button>
+          <button aria-label="Close menu" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
+          <aside className="sidebar absolute inset-y-0 left-0 flex w-[min(86vw,320px)] shadow-2xl">
+            <Button aria-label="Close menu" className="absolute left-3 top-3 z-10" onClick={() => setMobileOpen(false)} size="icon-sm" variant="ghost"><XIcon className="size-4" /></Button>
             <Sidebar onOpenSettings={() => { setSettingsOpen(true); setMobileOpen(false); }} onOpenWorkflow={openWorkflow} platform={platform} />
           </aside>
         </div>
@@ -196,22 +213,23 @@ export function AgentChat({
       <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <header className="topbar">
           <div className="flex items-center gap-2">
-            <Button aria-label="فتح القائمة" className="lg:hidden" onClick={() => setMobileOpen(true)} size="icon-sm" variant="ghost"><MenuIcon className="size-4" /></Button>
-            <Button aria-label="طي القائمة" className="hidden lg:inline-flex" onClick={() => setSidebarOpen((value) => !value)} size="icon-sm" variant="ghost">
+            <Button aria-label="Open menu" className="lg:hidden" onClick={() => setMobileOpen(true)} size="icon-sm" variant="ghost"><MenuIcon className="size-4" /></Button>
+            <Button aria-label="Toggle sidebar" className="hidden lg:inline-flex" onClick={() => setSidebarOpen((value) => !value)} size="icon-sm" variant="ghost">
               {sidebarOpen ? <PanelRightCloseIcon className="size-4" /> : <PanelRightOpenIcon className="size-4" />}
             </Button>
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</p>
-              <p className="truncate text-[10px] text-zinc-600">{activeSessionId ? `جلسة ${activeSessionId.slice(0, 8)}` : "محادثة جديدة"}</p>
+              <div className="workspace-breadcrumb"><HomeIcon className="size-5" /><span>Workspace</span><span>/</span><strong>{demo ? "Customer support API" : activeSessionId ? `Task ${activeSessionId.slice(0, 8)}` : "New task"}</strong></div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button aria-label="إعدادات الوكيل" onClick={() => setSettingsOpen(true)} size="icon-sm" variant="ghost"><Settings2Icon className="size-4" /></Button>
-            <Button className="rounded-lg border-white/10 bg-white/[0.035]" onClick={() => window.location.assign("/s")} size="sm" variant="outline"><PlusIcon className="size-3.5" /><span className="hidden sm:inline">محادثة جديدة</span></Button>
+            <Button className="demo-button" onClick={() => setDemo((value) => !value)} size="sm" variant="outline"><PlayIcon className="size-3.5" />{demo ? "Exit demo" : "Demo session"}</Button>
+            <Button aria-label="Toggle execution panel" onClick={() => setExecutionOpen((value) => !value)} size="icon-sm" variant="ghost"><ActivityIcon className="size-4" /></Button>
+            <Button aria-label="Agent settings" onClick={() => setSettingsOpen(true)} size="icon-sm" variant="ghost"><Settings2Icon className="size-4" /></Button>
+            <Button className="rounded-lg border-white/10 bg-white/[0.035]" onClick={() => window.location.assign("/s")} size="sm" variant="outline"><PlusIcon className="size-3.5" /><span className="hidden sm:inline">New task</span></Button>
           </div>
         </header>
 
-        {showConversation ? (
+        {demo ? <DemoConversation tab={demoTab} onTab={setDemoTab} /> : showConversation ? (
           <Conversation className="flex-1">
             <ConversationTopFade />
             <ConversationContent className="mx-auto w-full max-w-[820px] gap-8 px-4 pb-48 pt-8 sm:px-8 lg:pt-12">
@@ -231,59 +249,21 @@ export function AgentChat({
             <ConversationScrollButton />
           </Conversation>
         ) : (
-          <Welcome onOpenWorkflow={openWorkflow} onPrompt={(prompt) => void agent.send(prompt)} />
+          <div className="workspace-empty"><div className="agent-heading"><img src="/agent-mark.png" alt="" width={40} height={36} /><strong>ADHAM AGENT</strong><span>Coordinator</span></div><h1>What are we working on?</h1><p>Describe your task below. I’ll help you plan, build, and verify it.</p><div className="start-tasks">{WORKFLOWS.slice(0, 3).map((workflow) => <button key={workflow.id} onClick={() => authenticated ? openWorkflow(workflow.id) : document.querySelector<HTMLTextAreaElement>("textarea")?.focus()} disabled={!authenticated} type="button"><workflow.icon className="size-4" /><span>{workflow.label}</span><PlusIcon className="size-4" /></button>)}</div></div>
         )}
 
-        <div className={cn("composer-wrap", showConversation ? "composer-fixed" : "composer-home")}>{composer}</div>
+        <div className={cn("composer-wrap", "composer-fixed")}>{composer}</div>
       </main>
 
-      <AgentSettingsDialog onOpenChange={setSettingsOpen} open={settingsOpen} />
+      <ExecutionPanel demo={demo} busy={isBusy} error={errorMessage} open={executionOpen} onClose={() => setExecutionOpen(false)} events={agent.events} onReview={() => { if (demo) setDemoTab("Checks"); else document.querySelector("[data-streamdown]")?.scrollIntoView({ behavior: "smooth" }); }} />
+      <AgentSettingsDialog authenticated={authenticated} onOpenChange={setSettingsOpen} open={settingsOpen} />
       <ExecutiveWorkflowsModal
+        authenticated={authenticated}
         initialPipeline={selectedWorkflow}
         isOpen={workflowOpen}
         onClose={() => setWorkflowOpen(false)}
-        onSendToChat={(text) => void agent.send(text)}
+        onSendToChat={(text) => { setDemo(false); void agent.send(text); }}
       />
-    </div>
-  );
-}
-
-function Welcome({
-  onOpenWorkflow,
-  onPrompt,
-}: {
-  readonly onOpenWorkflow: (workflow: WorkflowPipelineType) => void;
-  readonly onPrompt: (prompt: string) => void;
-}) {
-  return (
-    <div className="welcome-stage flex flex-1 overflow-y-auto">
-      <div className="welcome-layout mx-auto w-full max-w-[1120px] px-5 pb-8 pt-10 sm:px-9 lg:px-14">
-        <section className="welcome-intro">
-          <div className="welcome-identity"><span className="welcome-signal" />مساحة العمل التنفيذية<span dir="ltr">/ 01</span></div>
-          <div className="welcome-orb">A</div>
-          <p className="welcome-eyebrow" dir="ltr">ADHAM AGENT</p>
-          <h1 className="welcome-title">فكّر على نطاق أوسع.<br /><span>نفّذ بدقة أعلى.</span></h1>
-          <p className="welcome-description">من السؤال الأول حتى النتيجة التي يمكن فحصها: بحث مباشر، أدوات برمجية، وذاكرة تتذكر ما يهم عملك.</p>
-          <button className="welcome-search" onClick={() => onPrompt("ابحث لحظياً عن أهم التطورات التقنية اليوم وقدّم لي خلاصة موثقة بالمصادر.")} type="button">
-            <SearchIcon className="size-4" />ابدأ ببحث مباشر<ArrowUpLeftIcon className="ms-auto size-4" />
-          </button>
-        </section>
-        <section className="welcome-missions" aria-label="مسارات العمل">
-          <div className="missions-heading"><span>اختر نقطة البداية</span><span dir="ltr">CAPABILITIES / 06</span></div>
-          {WORKFLOWS.slice(0, 6).map((workflow, index) => {
-            const Icon = workflow.icon;
-            return (
-              <button className="mission-row" key={workflow.id} onClick={() => onOpenWorkflow(workflow.id)} type="button">
-                <span className="mission-index" dir="ltr">0{index + 1}</span>
-                <Icon className="mission-icon size-[18px]" />
-                <span className="mission-copy"><strong>{workflow.label}</strong><small>{workflow.hint}</small></span>
-                <ArrowUpLeftIcon className="mission-arrow size-4" />
-              </button>
-            );
-          })}
-          <p className="missions-footer">كل مسار يبدأ بفهم هدفك وينتهي بنتيجة قابلة للمراجعة.</p>
-        </section>
-      </div>
     </div>
   );
 }
@@ -298,22 +278,21 @@ function Sidebar({
   readonly platform?: PlatformStatus;
 }) {
   return (
-    <div className="flex h-full w-[268px] shrink-0 flex-col overflow-y-auto p-3">
+    <div className="flex h-full w-[280px] shrink-0 flex-col overflow-y-auto p-3">
       <div className="flex items-center gap-3 px-2 py-2">
-        <div className="brand-mark">A</div>
-        <div><p className="text-sm font-semibold tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</p><p className="text-[10px] text-zinc-500">مساحة العمل الذكية</p></div>
+        <div className="brand-mark"><img src="/agent-mark.png" alt="" width={40} height={36} /></div>
+        <div><p className="text-sm font-semibold tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</p><p className="text-[10px] text-zinc-500">Workspace</p></div>
       </div>
-      <Button className="mt-4 w-full justify-start rounded-xl border-white/8 bg-white/[0.035] text-zinc-300" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />محادثة جديدة</Button>
+      <Button className="new-task mt-6 w-full justify-start rounded-lg" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />New task</Button>
 
-      <p className="section-label mt-6">القدرات</p>
-      <nav className="mt-2 space-y-1">
-        <SideItem icon={Globe2Icon} label="بحث لحظي" />
-        <SideItem icon={TerminalSquareIcon} label="Linux دائم ومعزول" />
-        <SideItem icon={BrainIcon} label="ذاكرة مستدامة" />
-        <SideItem icon={UsersIcon} label="فريق متعدد الوكلاء" />
+      <nav className="primary-nav mt-5 space-y-1">
+        <button className="nav-item nav-active" onClick={() => window.location.assign("/")} type="button"><MessageSquareIcon className="size-5" />Conversations</button>
+        <button className="nav-item" onClick={() => onOpenWorkflow("feature-delivery")} type="button"><LayoutGridIcon className="size-5" />Workspace</button>
+        <button className="nav-item" onClick={onOpenSettings} type="button"><LinkIcon className="size-5" />Connections & settings</button>
+        <button className="nav-item" onClick={onOpenSettings} type="button"><DatabaseIcon className="size-5" />Memory</button>
       </nav>
 
-      <p className="section-label mt-6">مسارات جاهزة</p>
+      <p className="section-label mt-6">Task workflows</p>
       <nav className="mt-2 space-y-1">
         {WORKFLOWS.map((workflow) => {
           const Icon = workflow.icon;
@@ -326,44 +305,41 @@ function Sidebar({
       </nav>
 
       <div className="mt-auto pt-5">
+        <div className="sidebar-profile"><span className="profile-avatar"><TriangleIcon className="size-5" /></span><span>Agent workspace</span></div>
         <button className="settings-entry" onClick={onOpenSettings} type="button">
           <Settings2Icon className="size-4" />
-          <span><strong>تعليمات الوكيل</strong><small>الذاكرة والسلوك الدائم</small></span>
+          <span><strong>Settings</strong><small>Instructions and memory</small></span>
         </button>
         <div className="mt-3 flex items-center gap-2 px-2 text-[10px] text-zinc-600">
           <span className={cn("status-dot", platform?.status !== "online" && "bg-zinc-700 shadow-none")} />
-          {platform?.status === "online" ? "جميع الأنظمة متصلة" : "جارٍ فحص الاتصال"}
+          {platform?.status === "online" ? "Connected" : "Not connected"}
         </div>
       </div>
     </div>
   );
 }
 
-function SideItem({ icon: Icon, label }: { readonly icon: React.ElementType; readonly label: string }) {
-  return <div className="nav-item cursor-default"><Icon className="size-3.5" /><span>{label}</span><ShieldCheckIcon className="ms-auto size-3 text-emerald-500/70" /></div>;
-}
-
 function ComposerAction({ hasInputText, isBusy, isResuming, onCancel }: { readonly hasInputText: boolean; readonly isBusy: boolean; readonly isResuming: boolean; readonly onCancel: () => void }) {
   const attachments = usePromptInputAttachments();
   const canSubmit = hasInputText || attachments.files.length > 0;
-  if (!isBusy || canSubmit) return <PromptInputSubmit aria-label="إرسال" className="rounded-lg bg-zinc-100 text-zinc-950 hover:bg-white" disabled={isResuming} />;
-  return <PromptInputButton aria-label="إيقاف التنفيذ" className="rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400" onClick={onCancel} variant="outline"><SquareIcon className="size-3 fill-current" /></PromptInputButton>;
+  if (!isBusy || canSubmit) return <PromptInputSubmit aria-label="Send message" className="send-button rounded-lg" disabled={isResuming}><SendIcon className="size-5" /></PromptInputSubmit>;
+  return <PromptInputButton aria-label="Stop execution" className="rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400" onClick={onCancel} variant="outline"><SquareIcon className="size-3 fill-current" /></PromptInputButton>;
 }
 
 function LoadingState() {
-  return <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-600"><span className="status-dot status-dot-busy" />استعادة المحادثة...</div>;
+  return <div className="flex items-center justify-center gap-2 py-12 text-sm text-zinc-600"><span className="status-dot status-dot-busy" />Restoring conversation...</div>;
 }
 
 function PendingThinking() {
-  return <Message aria-live="polite" from="assistant"><MessageContent><div className="inline-flex items-center gap-2 py-2 text-sm text-zinc-500"><span className="status-dot status-dot-busy" /><Shimmer duration={1.1}>يعمل الفريق على المهمة...</Shimmer></div></MessageContent></Message>;
+  return <Message aria-live="polite" from="assistant"><MessageContent><div className="inline-flex items-center gap-2 py-2 text-sm text-zinc-500"><span className="status-dot status-dot-busy" /><Shimmer duration={1.1}>The agent is working...</Shimmer></div></MessageContent></Message>;
 }
 
 function ErrorMessage({ message }: { readonly message: string }) {
-  return <Message from="assistant"><MessageContent><div className="flex items-start gap-3 border-s-2 border-rose-500/50 py-2 ps-3 text-sm text-rose-300" role="alert"><AlertCircleIcon className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">تعذر إكمال المهمة</p><p className="mt-1 text-xs leading-5 text-zinc-500">{message}</p></div></div></MessageContent></Message>;
+  return <Message from="assistant"><MessageContent><div className="flex items-start gap-3 border-s-2 border-rose-500/50 py-2 ps-3 text-sm text-rose-300" role="alert"><AlertCircleIcon className="mt-0.5 size-4 shrink-0" /><div><p className="font-medium">Unable to complete the task</p><p className="mt-1 text-xs leading-5 text-zinc-500">{message}</p></div></div></MessageContent></Message>;
 }
 
 function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "تعذر إيقاف التنفيذ.";
+  return error instanceof Error ? error.message : "Unable to stop execution.";
 }
 
 function getLatestTurnFailure(events: ReturnType<typeof useEveAgent>["events"]): string | undefined {
@@ -373,4 +349,50 @@ function getLatestTurnFailure(events: ReturnType<typeof useEveAgent>["events"]):
     if (event.type === "turn.completed" || event.type === "turn.cancelled" || event.type === "message.received") return undefined;
   }
   return undefined;
+}
+
+const DEMO_CODE = `import { z } from "zod";
+import { NextResponse } from "next/server";
+
+const schema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+  message: z.string().min(10),
+});`;
+
+function DemoConversation({ tab, onTab }: { readonly tab: string; readonly onTab: (tab: string) => void }) {
+  return <div className="demo-conversation">
+    <div className="demo-notice">Example session · Preview only</div>
+    <div className="demo-user"><span className="profile-avatar">AY</span><p>Build a support request API with validation and tests.</p></div>
+    <div className="agent-heading"><img src="/agent-mark.png" alt="" width={40} height={36} /><strong>ADHAM AGENT</strong><span>Coordinator</span></div>
+    <p className="demo-response">I’ll define the request schema, build the endpoint, and verify the error handling.</p>
+    <div className="plan-card">{[["Plan", "Define requirements and technical approach"], ["Implementation", "Build the API endpoint with validation"], ["Review", "Run tests and verify error handling"]].map(([title, description], index) => <div className="plan-row" key={title}><span className={index === 2 ? "stage-icon stage-running" : "stage-icon"}>{index === 2 ? <CircleIcon /> : <CheckIcon />}</span><div><strong>{title}</strong><small>{description}</small></div><span className={index === 2 ? "accent-text" : "stage-status"}>{index === 2 ? "In progress" : "Completed"}</span></div>)}</div>
+    <div className="artifact-card"><div className="artifact-tabs" role="tablist" aria-label="Example artifacts">{[{ name: "Changes", icon: FileCodeIcon }, { name: "Preview", icon: EyeIcon }, { name: "Checks", icon: ShieldCheckIcon }].map(({ name, icon: Icon }) => <button key={name} aria-selected={tab === name} className={tab === name ? "artifact-tab active" : "artifact-tab"} onClick={() => onTab(name)} role="tab" type="button"><Icon className="size-4" />{name}</button>)}</div>
+      <div className="artifact-body" role="tabpanel">{tab === "Changes" ? <><div className="code-card"><div className="code-title"><FileCodeIcon className="size-4" />app/api/support/route.ts<span>TypeScript</span></div><pre><code>{DEMO_CODE.split("\n").map((line, index) => <div key={index}><span className="line-number">{index + 1}</span><span>{line}</span></div>)}</code></pre></div><div className="changed-file"><FileCodeIcon /><div><strong>route.ts</strong><small>app/api/support/route.ts</small></div><span>+82</span><small>−0</small></div><div className="changed-file"><ShieldCheckIcon /><div><strong>support.test.ts</strong><small>__tests__/support.test.ts</small></div><span>+64</span><small>−0</small></div></> : tab === "Preview" ? <div className="preview-example"><Code2Icon className="size-6" /><h3>Support request endpoint</h3><code>POST /api/support</code><p>Validates name, email, and message before accepting a request.</p><small>Example output — no endpoint is created by this demo.</small></div> : <div className="example-checks"><p><CheckIcon className="size-4" /> Request schema validation <span>Example: passed</span></p><p><CheckIcon className="size-4" /> Valid request handling <span>Example: passed</span></p><p><CircleIcon className="size-4" /> Error case coverage <span>Example: running</span></p></div>}</div>
+    </div>
+  </div>;
+}
+
+function ExecutionPanel({ demo, busy, error, open, onClose, events, onReview }: { readonly demo: boolean; readonly busy: boolean; readonly error?: string; readonly open: boolean; readonly onClose: () => void; readonly events: ReturnType<typeof useEveAgent>["events"]; readonly onReview: () => void }) {
+  const activity = events.filter((event) => /tool|turn\.(completed|failed|started)/.test(event.type)).slice(-5).reverse();
+  return <aside className={cn("execution-panel", open && "execution-panel-open")} aria-label="Execution">
+    <div className="execution-heading"><div><h2>Execution</h2><p>{demo ? "Example workflow" : busy ? "Task in progress" : "Current session"}</p></div><Button aria-label="Close execution panel" className="xl:hidden" size="icon-sm" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button></div>
+    {demo ? <div className="execution-stages">{[["Planner", "Break down the task"], ["Executor", "Write and update code"], ["Reviewer", "Run tests and validate"]].map(([title, detail], index) => <div className="execution-stage" key={title}><span className={index === 2 ? "stage-icon stage-running" : "stage-icon"}>{index === 2 ? <CircleIcon /> : <CheckIcon />}</span><div><strong>{title}</strong><small>{detail}</small></div><span className="status-badge">{index === 2 ? "Running" : "Completed"}</span></div>)}</div> : <div className="live-execution"><span className={cn("stage-icon", busy && "stage-running")}><ActivityIcon /></span><div><strong>{error ? "Task interrupted" : busy ? "Coordinator working" : "Ready for a task"}</strong><small>{error ? "Review the message in the conversation." : busy ? "Follow progress in the conversation." : "Execution activity appears here when you start."}</small></div></div>}
+    <div className="latest-activity"><h2>Latest activity</h2>{demo ? [["Validated request schema", "Defined and tested input validation"], ["Added API handler", "Implemented POST /api/support"], ["Checking error cases", "Running test suite"]].map(([title, detail], index) => <div className="activity-row" key={title}><FileCodeIcon className="size-5" /><div><strong>{title}</strong><small>{detail}</small></div><span className={index === 2 ? "activity-dot running" : "activity-dot"} /></div>) : activity.length ? activity.map((event, index) => <div className="activity-row" key={index}><ActivityIcon className="size-4" /><div><strong>{activityLabel(event.type)}</strong></div></div>) : <p className="activity-empty">No activity yet.<br />Start a conversation to see live updates.</p>}</div>
+    <Button className="review-button" disabled={!demo && activity.length === 0} onClick={onReview} variant="outline"><ShieldCheckIcon className="size-4" />{demo ? "Review example checks" : "Review conversation"}</Button>
+  </aside>;
+}
+
+function activityLabel(type: string): string {
+  if (type === "turn.completed") return "Task completed";
+  if (type === "turn.failed") return "Task interrupted";
+  if (type === "turn.started") return "Task started";
+  if (type.includes("completed") || type.includes("result")) return "Tool finished";
+  if (type.includes("failed")) return "Tool needs attention";
+  return "Using a tool";
+}
+
+function ComposerAttachments({ disabled }: { readonly disabled: boolean }) {
+  const attachments = usePromptInputAttachments();
+  return <div className="composer-attachments"><PromptInputButton aria-label="Attach files" disabled={disabled} onClick={() => attachments.openFileDialog()} variant="ghost"><PaperclipIcon className="size-4" /></PromptInputButton>{attachments.files.map((file) => <button key={file.id} className="attachment-chip" onClick={() => attachments.remove(file.id)} type="button" aria-label={`Remove ${file.filename ?? "attachment"}`}>{file.filename ?? "Attachment"}<XIcon className="size-3" /></button>)}</div>;
 }

@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
+import { SignIn } from "./web-chat-auth";
+
 export type WorkflowPipelineType =
   | "feature-delivery"
   | "database-engineering"
@@ -31,55 +33,57 @@ export type WorkflowPipelineType =
 
 const WORKFLOWS = {
   "feature-delivery": {
-    title: "بناء ميزة كاملة",
-    description: "من المتطلبات حتى التنفيذ والتحقق.",
-    placeholder: "صف الميزة، المستخدم المستهدف، والسلوك المطلوب...",
+    title: "Build a feature",
+    description: "From requirements to implementation and verification.",
+    placeholder: "Describe the feature, target user, and expected behavior...",
     icon: SparklesIcon,
   },
   "database-engineering": {
-    title: "هندسة قاعدة البيانات",
-    description: "تصميم البيانات، الأداء، وسياسات الوصول.",
-    placeholder: "صف الكيانات والعلاقات ونموذج الصلاحيات...",
+    title: "Database engineering",
+    description: "Data design, performance, and access policies.",
+    placeholder: "Describe entities, relationships, and access requirements...",
     icon: DatabaseIcon,
   },
   "code-audit-repair": {
-    title: "فحص وإصلاح الكود",
-    description: "تشخيص السبب الجذري وتقديم إصلاح موثّق.",
-    placeholder: "الصق الكود أو اذكر المسار والمشكلة المتوقعة...",
+    title: "Code audit & repair",
+    description: "Find the root cause and deliver a verified fix.",
+    placeholder: "Paste code or describe the file and the issue...",
     icon: Code2Icon,
   },
   "release-readiness": {
-    title: "تجهيز الإصدار",
-    description: "فحوص الجودة وخطة النشر والتراجع.",
-    placeholder: "صف نطاق الإصدار والبيئة المستهدفة...",
+    title: "Release readiness",
+    description: "Quality checks, deployment, and rollback planning.",
+    placeholder: "Describe the release scope and target environment...",
     icon: RocketIcon,
   },
   "architecture-evaluation": {
-    title: "قرار معماري",
-    description: "مقارنة البدائل وصياغة قرار قابل للمراجعة.",
-    placeholder: "اذكر القرار والبدائل والقيود...",
+    title: "Architecture review",
+    description: "Compare alternatives and document the decision.",
+    placeholder: "Describe the decision, alternatives, and constraints...",
     icon: GitBranchIcon,
   },
   "incident-response": {
-    title: "معالجة حادث",
-    description: "احتواء، تشخيص، إصلاح، ومراجعة ما بعد الحادث.",
-    placeholder: "صف الأثر والسجلات وآخر التغييرات...",
+    title: "Incident response",
+    description: "Contain, diagnose, repair, and review the incident.",
+    placeholder: "Describe impact, logs, and recent changes...",
     icon: ActivityIcon,
   },
   "continual-learning": {
-    title: "استخلاص معرفة",
-    description: "تحويل نتيجة سابقة إلى قاعدة محكومة بالسياق.",
-    placeholder: "صف السياق والقرار والنتيجة الفعلية والدرس المستفاد...",
+    title: "Capture knowledge",
+    description: "Turn past results into context-aware knowledge.",
+    placeholder: "Describe the context, decision, result, and lesson learned...",
     icon: ShieldCheckIcon,
   },
 } as const;
 
 export function ExecutiveWorkflowsModal({
+  authenticated = true,
   initialPipeline,
   isOpen,
   onClose,
   onSendToChat,
 }: {
+  readonly authenticated?: boolean;
   readonly initialPipeline: WorkflowPipelineType;
   readonly isOpen: boolean;
   readonly onClose: () => void;
@@ -92,7 +96,7 @@ export function ExecutiveWorkflowsModal({
   const workflow = WORKFLOWS[pipeline];
   const Icon = workflow.icon;
   const prompt = useMemo(
-    () => `نفّذ مسار «${workflow.title}» كفريق متعدد الوكلاء.\n\n${details.trim()}`,
+    () => `Execute the "${workflow.title}" workflow with the appropriate specialist agents.\n\n${details.trim()}`,
     [details, workflow.title],
   );
 
@@ -100,7 +104,7 @@ export function ExecutiveWorkflowsModal({
     <Dialog onOpenChange={(open) => !open && onClose()} open={isOpen}>
       <DialogContent className="workflow-dialog border-white/10 bg-[#111214] p-0 text-zinc-100 sm:max-w-2xl">
         <div className="p-5 sm:p-7">
-          <DialogHeader className="text-right">
+          <DialogHeader className="text-left">
             <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-white/[0.06] text-zinc-200">
               <Icon className="size-5" />
             </div>
@@ -124,7 +128,7 @@ export function ExecutiveWorkflowsModal({
           </div>
 
           <label className="mt-6 block text-xs font-medium text-zinc-400" htmlFor="workflow-details">
-            تفاصيل المهمة
+            Task details
           </label>
           <Textarea
             className="mt-2 min-h-40 resize-y border-white/10 bg-black/20 p-4 leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-zinc-500/40"
@@ -135,8 +139,8 @@ export function ExecutiveWorkflowsModal({
           />
 
           <div className="mt-5 flex items-center justify-between gap-3">
-            <p className="text-[11px] text-zinc-600">سيختار المنسّق الوكلاء والأدوات المناسبة تلقائياً.</p>
-            <Button
+            <p className="text-[11px] text-zinc-600">The coordinator selects the appropriate agents and tools.</p>
+            {!authenticated ? <SignIn /> : <Button
               className="rounded-xl bg-zinc-100 px-5 text-zinc-950 hover:bg-white"
               disabled={!details.trim()}
               onClick={() => {
@@ -145,8 +149,8 @@ export function ExecutiveWorkflowsModal({
                 onClose();
               }}
             >
-              ابدأ التنفيذ
-            </Button>
+              Start task
+            </Button>}
           </div>
         </div>
       </DialogContent>
