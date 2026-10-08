@@ -7,11 +7,8 @@ import {
   MessageSquareIcon,
   LayoutGridIcon,
   LinkIcon,
-  PlayIcon,
   CheckIcon,
   CircleIcon,
-  FileCodeIcon,
-  EyeIcon,
   PaperclipIcon,
   SendIcon,
   TerminalIcon,
@@ -26,12 +23,11 @@ import {
   PlusIcon,
   RocketIcon,
   Settings2Icon,
-  ShieldCheckIcon,
   SparklesIcon,
   SquareIcon,
   XIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -56,7 +52,9 @@ import { AgentSettingsDialog } from "./agent-settings-dialog";
 import {
   ExecutiveWorkflowsModal,
   type WorkflowPipelineType,
-} from "./executive-workflows-modal";
+} from "./workflow-runner";
+import { workflowForms, type SavedRun } from "@/lib/platform/workflow-form";
+import { HistoryDialog } from "./run-history";
 
 const WORKFLOWS: readonly {
   id: WorkflowPipelineType;
@@ -83,8 +81,6 @@ export function AgentChat({
 }: {
   readonly sessionId?: string;
 }) {
-  const [demo, setDemo] = useState(false);
-  const [demoTab, setDemoTab] = useState("Changes");
   const [executionOpen, setExecutionOpen] = useState(false);
   const [cancellationError, setCancellationError] = useState<string>();
   const [hasInputText, setHasInputText] = useState(false);
@@ -94,17 +90,22 @@ export function AgentChat({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowPipelineType>("feature-delivery");
   const [platform, setPlatform] = useState<PlatformStatus>();
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/executive-workflows", { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("unavailable");
-        setPlatform((await response.json()) as PlatformStatus);
-      })
-      .catch(() => setPlatform(undefined));
-    return () => controller.abort();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [selectedRunId, setSelectedRunId] = useState<string>();
+  const [runs, setRuns] = useState<readonly SavedRun[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string>();
+  const refreshHistory = useCallback(async () => {
+    setHistoryLoading(true); setHistoryError(undefined);
+    try {
+      const response = await fetch("/api/executive-workflows?history=1");
+      if (!response.ok) throw new Error("Saved work is temporarily unavailable.");
+      const data = await response.json(); setPlatform(data); setRuns(data.history ?? []);
+    } catch (cause) { setHistoryError(cause instanceof Error ? cause.message : "Could not load saved work."); }
+    finally { setHistoryLoading(false); }
   }, []);
+  useEffect(() => { void refreshHistory(); }, [refreshHistory]);
+  const openRun = (run: SavedRun) => { setSelectedWorkflow(run.workflowId); setSelectedRunId(run.id); setWorkflowOpen(true); setHistoryOpen(false); };
 
   const agent = useEveAgent({
     initialSession: sessionId === undefined ? undefined : { sessionId, streamIndex: 0 },
@@ -136,13 +137,13 @@ export function AgentChat({
   const activeSessionId = sessionId ?? agent.session?.sessionId;
 
   const openWorkflow = (workflow: WorkflowPipelineType) => {
+    setSelectedRunId(undefined);
     setSelectedWorkflow(workflow);
     setWorkflowOpen(true);
     setMobileOpen(false);
   };
 
   const handleSubmit = async (message: PromptInputMessage) => {
-    setDemo(false);
     const text = message.text.trim();
     if ((text.length === 0 && message.files.length === 0) || isResuming) return;
     setHasInputText(false);
@@ -166,12 +167,12 @@ export function AgentChat({
           className="min-h-[48px] resize-none border-none bg-transparent px-3 py-2 text-[15px] leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
           disabled={isResuming}
           onChange={(event) => setHasInputText(event.currentTarget.value.trim().length > 0)}
-          placeholder="What would you like to work on?"
+          placeholder="Describe the outcome, the context, and what success looks like…"
         />
         <div className="composer-toolbar flex items-center justify-between px-1 pb-1">
           <div className="flex items-center gap-2 text-[11px] text-zinc-600">
             <span className={cn("status-dot", isBusy && "status-dot-busy")} />
-            {isBusy ? "Working — send a follow-up to steer the task" : "Use natural language to plan, build, and run tasks"}
+            {isBusy ? "Working — send a follow-up to steer the task" : "Work with your agent · files and context welcome"}
           </div>
           <ComposerAction
             hasInputText={hasInputText}
@@ -190,7 +191,7 @@ export function AgentChat({
   return (
     <div className="app-shell">
       <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[256px]" : "w-0 border-0")}>
-        <Sidebar onOpenSettings={() => setSettingsOpen(true)} onOpenWorkflow={openWorkflow} platform={platform} />
+        <Sidebar onOpenSettings={() => setSettingsOpen(true)} onOpenWorkflow={openWorkflow} platform={platform} onOpenHistory={() => { setHistoryOpen(true); setMobileOpen(false); void refreshHistory(); }} />
       </aside>
 
       {mobileOpen ? (
@@ -198,7 +199,7 @@ export function AgentChat({
           <button aria-label="Dismiss navigation" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
           <aside className="sidebar absolute inset-y-0 left-0 flex w-[min(86vw,320px)] shadow-2xl">
             <Button aria-label="Close menu" className="absolute right-3 top-3 z-10" onClick={() => setMobileOpen(false)} size="icon-sm" variant="ghost"><XIcon className="size-4" /></Button>
-            <Sidebar onOpenSettings={() => { setSettingsOpen(true); setMobileOpen(false); }} onOpenWorkflow={openWorkflow} platform={platform} />
+            <Sidebar onOpenSettings={() => { setSettingsOpen(true); setMobileOpen(false); }} onOpenWorkflow={openWorkflow} platform={platform} onOpenHistory={() => { setHistoryOpen(true); setMobileOpen(false); void refreshHistory(); }} />
           </aside>
         </div>
       ) : null}
@@ -211,19 +212,19 @@ export function AgentChat({
               {sidebarOpen ? <PanelRightCloseIcon className="size-4" /> : <PanelRightOpenIcon className="size-4" />}
             </Button>
             <div className="min-w-0">
-              <div className="workspace-breadcrumb"><span>Workspace</span><span>/</span><strong>{demo ? "Example session" : activeSessionId ? `Task ${activeSessionId.slice(0, 8)}` : "Overview"}</strong></div>
+              <div className="workspace-breadcrumb"><span>Workroom</span><span>/</span><strong>{activeSessionId ? `Task ${activeSessionId.slice(0, 8)}` : "Overview"}</strong></div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="open-access-badge"><span className="status-dot" />Open access</span>
-            <Button className="demo-button" onClick={() => setDemo((value) => !value)} size="sm" variant="outline"><PlayIcon className="size-3.5" />{demo ? "Exit example" : "View example"}</Button>
+            <span className="open-access-badge"><span className="status-dot" />Personal workspace</span>
+            <Button className="history-button" onClick={() => { setHistoryOpen(true); void refreshHistory(); }} size="sm" variant="ghost">Saved work</Button>
             <Button aria-label="Toggle execution panel" onClick={() => setExecutionOpen((value) => !value)} size="icon-sm" variant="ghost"><ActivityIcon className="size-4" /></Button>
             <Button aria-label="Agent settings" onClick={() => setSettingsOpen(true)} size="icon-sm" variant="ghost"><Settings2Icon className="size-4" /></Button>
             <Button className="rounded-lg border-white/10 bg-white/[0.035]" onClick={() => window.location.assign("/s")} size="sm" variant="outline"><PlusIcon className="size-3.5" /><span className="hidden sm:inline">New task</span></Button>
           </div>
         </header>
 
-        {demo ? <DemoConversation tab={demoTab} onTab={setDemoTab} /> : showConversation ? (
+        {showConversation ? (
           <Conversation className="flex-1">
             <ConversationTopFade />
             <ConversationContent className="mx-auto w-full max-w-[820px] gap-8 px-4 pb-48 pt-8 sm:px-8 lg:pt-12">
@@ -243,19 +244,21 @@ export function AgentChat({
             <ConversationScrollButton />
           </Conversation>
         ) : (
-          <WorkspaceWelcome composer={composer} onOpenWorkflow={openWorkflow} onPrompt={(text) => { void agent.send(text); }} />
+          <WorkspaceWelcome composer={composer} onOpenWorkflow={openWorkflow} runs={runs} loading={historyLoading} error={historyError} onSelectRun={openRun} onRefresh={() => void refreshHistory()} />
         )}
 
-        {demo || showConversation ? <div className="composer-wrap composer-fixed">{composer}</div> : null}
+        {showConversation ? <div className="composer-wrap composer-fixed">{composer}</div> : null}
       </main>
 
-      <ExecutionPanel demo={demo} busy={isBusy} error={errorMessage} open={executionOpen} onClose={() => setExecutionOpen(false)} events={agent.events} onReview={() => { if (demo) setDemoTab("Checks"); else document.querySelector("[data-streamdown]")?.scrollIntoView({ behavior: "smooth" }); }} />
+      <ExecutionPanel busy={isBusy} error={errorMessage} open={executionOpen} onClose={() => setExecutionOpen(false)} events={agent.events} onReview={() => document.querySelector("[data-streamdown]")?.scrollIntoView({ behavior: "smooth" })} />
+      <HistoryDialog open={historyOpen} onOpenChange={setHistoryOpen} runs={runs} loading={historyLoading} error={historyError} onSelect={openRun} onRefresh={() => void refreshHistory()} />
       <AgentSettingsDialog onOpenChange={setSettingsOpen} open={settingsOpen} />
       <ExecutiveWorkflowsModal
         initialPipeline={selectedWorkflow}
         isOpen={workflowOpen}
         onClose={() => setWorkflowOpen(false)}
-        onSendToChat={(text) => { setDemo(false); void agent.send(text); }}
+        selectedRunId={selectedRunId}
+        onRunSaved={() => void refreshHistory()}
       />
     </div>
   );
@@ -264,48 +267,49 @@ export function AgentChat({
 function Sidebar({
   onOpenSettings,
   onOpenWorkflow,
+  onOpenHistory,
   platform,
 }: {
   readonly onOpenSettings: () => void;
   readonly onOpenWorkflow: (workflow: WorkflowPipelineType) => void;
   readonly platform?: PlatformStatus;
+  readonly onOpenHistory: () => void;
 }) {
   return (
     <div className="sidebar-content flex h-full w-[256px] shrink-0 flex-col overflow-y-auto p-3">
       <div className="flex items-center gap-3 px-2 py-2">
-        <div className="brand-mark"><TerminalIcon className="size-5" /></div>
-        <div><p className="brand-name" dir="ltr">adham<span> / agent</span></p><p className="brand-subtitle">A little space. A lot of possibility.</p></div>
+        <div className="brand-mark">a<span>.</span></div>
+        <div><p className="brand-name" dir="ltr">ADHAM</p><p className="brand-subtitle">THE PERSONAL WORKROOM</p></div>
       </div>
       <Button className="new-task mt-7 w-full justify-start rounded-lg" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />New task<span className="new-task-shortcut">+</span></Button>
 
       <nav className="primary-nav mt-5 space-y-1">
-        <button className="nav-item nav-active" onClick={() => window.location.assign("/")} type="button"><MessageSquareIcon className="size-5" />Conversations</button>
-        <button className="nav-item" onClick={() => onOpenWorkflow("feature-delivery")} type="button"><LayoutGridIcon className="size-5" />Workspace</button>
-        <button className="nav-item" onClick={onOpenSettings} type="button"><LinkIcon className="size-5" />Connections & settings</button>
-        <button className="nav-item" onClick={onOpenSettings} type="button"><DatabaseIcon className="size-5" />Memory</button>
+        <button className="nav-item nav-active" onClick={() => window.location.assign("/")} type="button"><MessageSquareIcon className="size-5" />Workroom</button>
+        <button className="nav-item" onClick={onOpenHistory} type="button"><LayoutGridIcon className="size-5" />Saved work</button>
+        <button className="nav-item" onClick={onOpenSettings} type="button"><LinkIcon className="size-5" />Agent preferences</button>
       </nav>
 
-      <p className="section-label mt-6">WORKFLOWS<span className="workflow-count">07</span></p>
+      <p className="section-label mt-6">DELIVERABLES<span className="workflow-count">07</span></p>
       <nav className="mt-2 space-y-1">
         {WORKFLOWS.map((workflow) => {
           const Icon = workflow.icon;
           return (
             <button className="nav-item" key={workflow.id} onClick={() => onOpenWorkflow(workflow.id)} type="button">
-              <Icon className="size-3.5" /><span>{workflow.label}</span>
+              <Icon className="size-3.5" /><span>{workflowForms[workflow.id].title}</span>
             </button>
           );
         })}
       </nav>
 
       <div className="mt-auto pt-5">
-        <div className="sidebar-profile"><span className="profile-avatar"><TerminalIcon className="size-4" /></span><span><strong>Your workspace</strong><small>No account needed</small></span></div>
+        <div className="sidebar-profile"><span className="profile-avatar"><TerminalIcon className="size-4" /></span><span><strong>Made for your work</strong><small>Identity stays in this browser</small></span></div>
         <button className="settings-entry" onClick={onOpenSettings} type="button">
           <Settings2Icon className="size-4" />
           <span><strong>Settings</strong><small>Instructions and memory</small></span>
         </button>
         <div className="mt-3 flex items-center gap-2 px-2 text-[10px] text-zinc-600">
-          <span className={cn("status-dot", platform?.status !== "online" && "bg-zinc-700 shadow-none")} />
-          {platform?.status === "online" ? "Connected" : "Not connected"}
+          <span className={cn("status-dot", platform?.status !== "available" && "bg-zinc-700 shadow-none")} />
+          {platform?.status === "available" ? "Workspace connected" : "Connection unavailable"}
         </div>
       </div>
     </div>
@@ -344,35 +348,13 @@ function getLatestTurnFailure(events: ReturnType<typeof useEveAgent>["events"]):
   return undefined;
 }
 
-const DEMO_CODE = `import { z } from "zod";
-import { NextResponse } from "next/server";
-
-const schema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  message: z.string().min(10),
-});`;
-
-function DemoConversation({ tab, onTab }: { readonly tab: string; readonly onTab: (tab: string) => void }) {
-  return <div className="demo-conversation">
-    <div className="demo-notice">Example session · Preview only</div>
-    <div className="demo-user"><span className="profile-avatar">AY</span><p>Build a support request API with validation and tests.</p></div>
-    <div className="agent-heading"><img src="/agent-mark.png" alt="" width={40} height={36} /><strong>ADHAM AGENT</strong><span>Coordinator</span></div>
-    <p className="demo-response">I’ll define the request schema, build the endpoint, and verify the error handling.</p>
-    <div className="plan-card">{[["Plan", "Define requirements and technical approach"], ["Implementation", "Build the API endpoint with validation"], ["Review", "Run tests and verify error handling"]].map(([title, description], index) => <div className="plan-row" key={title}><span className={index === 2 ? "stage-icon stage-running" : "stage-icon"}>{index === 2 ? <CircleIcon /> : <CheckIcon />}</span><div><strong>{title}</strong><small>{description}</small></div><span className={index === 2 ? "accent-text" : "stage-status"}>{index === 2 ? "In progress" : "Completed"}</span></div>)}</div>
-    <div className="artifact-card"><div className="artifact-tabs" role="tablist" aria-label="Example artifacts">{[{ name: "Changes", icon: FileCodeIcon }, { name: "Preview", icon: EyeIcon }, { name: "Checks", icon: ShieldCheckIcon }].map(({ name, icon: Icon }) => <button key={name} aria-selected={tab === name} className={tab === name ? "artifact-tab active" : "artifact-tab"} onClick={() => onTab(name)} role="tab" type="button"><Icon className="size-4" />{name}</button>)}</div>
-      <div className="artifact-body" role="tabpanel">{tab === "Changes" ? <><div className="code-card"><div className="code-title"><FileCodeIcon className="size-4" />app/api/support/route.ts<span>TypeScript</span></div><pre><code>{DEMO_CODE.split("\n").map((line, index) => <div key={index}><span className="line-number">{index + 1}</span><span>{line}</span></div>)}</code></pre></div><div className="changed-file"><FileCodeIcon /><div><strong>route.ts</strong><small>app/api/support/route.ts</small></div><span>+82</span><small>−0</small></div><div className="changed-file"><ShieldCheckIcon /><div><strong>support.test.ts</strong><small>__tests__/support.test.ts</small></div><span>+64</span><small>−0</small></div></> : tab === "Preview" ? <div className="preview-example"><Code2Icon className="size-6" /><h3>Support request endpoint</h3><code>POST /api/support</code><p>Validates name, email, and message before accepting a request.</p><small>Example output — no endpoint is created by this demo.</small></div> : <div className="example-checks"><p><CheckIcon className="size-4" /> Request schema validation <span>Example: passed</span></p><p><CheckIcon className="size-4" /> Valid request handling <span>Example: passed</span></p><p><CircleIcon className="size-4" /> Error case coverage <span>Example: running</span></p></div>}</div>
-    </div>
-  </div>;
-}
-
-function ExecutionPanel({ demo, busy, error, open, onClose, events, onReview }: { readonly demo: boolean; readonly busy: boolean; readonly error?: string; readonly open: boolean; readonly onClose: () => void; readonly events: ReturnType<typeof useEveAgent>["events"]; readonly onReview: () => void }) {
-  const activity = events.filter((event) => /tool|turn\.(completed|failed|started)/.test(event.type)).slice(-5).reverse();
+function ExecutionPanel({ busy, error, open, onClose, events, onReview }: { readonly busy: boolean; readonly error?: string; readonly open: boolean; readonly onClose: () => void; readonly events: ReturnType<typeof useEveAgent>["events"]; readonly onReview: () => void }) {
+  const activity = events.filter(event => /tool|turn\.(completed|failed|started)/.test(event.type)).slice(-5).reverse();
   return <aside className={cn("execution-panel", open && "execution-panel-open")} aria-label="Execution">
-    <div className="execution-heading"><div><h2>Execution</h2><p>{demo ? "Example workflow" : busy ? "Task in progress" : "Current session"}</p></div><Button aria-label="Close execution panel" className="xl:hidden" size="icon-sm" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button></div>
-    {demo ? <div className="execution-stages">{[["Planner", "Break down the task"], ["Executor", "Write and update code"], ["Reviewer", "Run tests and validate"]].map(([title, detail], index) => <div className="execution-stage" key={title}><span className={index === 2 ? "stage-icon stage-running" : "stage-icon"}>{index === 2 ? <CircleIcon /> : <CheckIcon />}</span><div><strong>{title}</strong><small>{detail}</small></div><span className="status-badge">{index === 2 ? "Running" : "Completed"}</span></div>)}</div> : <div className="live-execution"><span className={cn("stage-icon", busy && "stage-running")}><ActivityIcon /></span><div><strong>{error ? "Task interrupted" : busy ? "Coordinator working" : "Ready for a task"}</strong><small>{error ? "Review the message in the conversation." : busy ? "Follow progress in the conversation." : "Execution activity appears here when you start."}</small></div></div>}
-    <div className="latest-activity"><h2>Latest activity</h2>{demo ? [["Validated request schema", "Defined and tested input validation"], ["Added API handler", "Implemented POST /api/support"], ["Checking error cases", "Running test suite"]].map(([title, detail], index) => <div className="activity-row" key={title}><FileCodeIcon className="size-5" /><div><strong>{title}</strong><small>{detail}</small></div><span className={index === 2 ? "activity-dot running" : "activity-dot"} /></div>) : activity.length ? activity.map((event, index) => <div className="activity-row" key={index}><ActivityIcon className="size-4" /><div><strong>{activityLabel(event.type)}</strong></div></div>) : <p className="activity-empty">No activity yet.<br />Start a conversation to see live updates.</p>}</div>
-    <Button className="review-button" disabled={!demo && activity.length === 0} onClick={onReview} variant="outline"><ShieldCheckIcon className="size-4" />{demo ? "Review example checks" : "Review conversation"}</Button>
+    <div className="execution-heading"><div><span className="eyebrow">LIVE RECORD</span><h2>Activity</h2><p>Current conversation</p></div><Button aria-label="Close execution panel" size="icon-sm" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button></div>
+    <div className="execution-status-card"><span className={cn("status-dot", busy && "status-dot-busy")} /><div><strong>{error ? "Needs attention" : busy ? "Agent working" : activity.length ? "Turn settled" : "Ready when you are"}</strong><p>{error ? "Review the error in the conversation." : busy ? "Live tool activity appears below." : "The record reflects actual agent events."}</p></div></div>
+    <div className="latest-activity">{activity.length ? activity.map((event, index) => <div className="activity-row" key={index}><ActivityIcon className="size-4" /><div><strong>{activityLabel(event.type)}</strong></div></div>) : <p className="activity-empty">Start a task to see the work as it happens.</p>}</div>
+    <Button className="review-button" disabled={activity.length === 0} onClick={onReview} variant="outline">Review conversation</Button>
   </aside>;
 }
 

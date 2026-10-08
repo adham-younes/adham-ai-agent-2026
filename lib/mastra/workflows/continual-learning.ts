@@ -7,30 +7,30 @@ import { LearnedRule } from "../../continual-learning/types";
 
 export const ContinualLearningInputSchema = z.object({
   episodeTask: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
     .describe("المهمة التشغيلية أو الحادثة السابقة المراد استيعابها والتعلم منها"),
-  task: z.string().optional(),
+  task: z.string().trim().min(1).max(100000).optional(),
   episodeDomain: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
     .describe("المجال الهندسي والصناعي، مثل: B2B E-Commerce، توربينات الرياح، الرعاية الصحية"),
-  domain: z.string().optional(),
+  domain: z.string().trim().min(1).max(100000).optional(),
   episodeEnvironment: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
     .describe("البيئة التقنية، مثل: Next.js 16 + Supabase PostgreSQL + Vercel Edge"),
-  environment: z.string().optional(),
+  environment: z.string().trim().min(1).max(100000).optional(),
   decisionTaken: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("القرار أو الإجراء الذي اتخذه الوكيل سابقاً"),
   observedReality: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("الواقع والنتيجة الفعلية الميدانية، والأثر الإيجابي أو السلبي الناتج"),
   targetNewContext: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
-    .default("تطبيق نفس القاعدة على منصة مزادات حية عالية السرعة سريعة التغير في الأسعار")
+    .default("No target context supplied; request a concrete target context before applying the lesson.")
     .describe("سياق عمل جديد لفحصه عبر بوابة السياق (Context Gate) واختبار منع النقل السلبي"),
 });
 
@@ -90,18 +90,13 @@ export const episodeIngestionStep = createStep({
 1. تشريح الفجوة بين القرار المتخذ والواقع الميداني بدقة تقنية.
 2. تقييم أثر النتيجة بدرجة رقمية دقيقة بين -1.0 (كارثة تشغيلية) إلى +1.0 (نجاح تام).
 3. تحديد أنماط الفشل أو عوامل النجاح الحتمية.
-4. الصياغة باللغة العربية الفصحى التقنية الرصينة.`;
+4. الصياغة in English.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
-
-    const isFailure =
-      inputData.observedReality.includes("فشل") ||
-      inputData.observedReality.includes("504") ||
-      inputData.observedReality.includes("انهيار") ||
-      inputData.observedReality.includes("خطأ");
 
     return {
       episodeTask,
@@ -111,7 +106,7 @@ export const episodeIngestionStep = createStep({
       observedReality: inputData.observedReality,
       targetNewContext,
       episodeAnalysisReport: text,
-      outcomeScore: isFailure ? -0.85 : 0.95,
+      outcomeScore: 0, // Unknown: generated text is not measured outcome evidence.
     };
   },
 });
@@ -138,16 +133,17 @@ ${inputData.episodeAnalysisReport}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
       episodeTask: inputData.episodeTask,
       targetNewContext: inputData.targetNewContext,
-      ruleTitle: `قاعدة مستخلصة: ${inputData.episodeTask.slice(0, 50)}`,
-      lessonLearned: "تم استخلاص الدرس المستفاد وتجريد القاعدة بنجاح.",
+      ruleTitle: `Candidate lesson: ${inputData.episodeTask.slice(0, 50)}`,
+      lessonLearned: "Review the candidate lesson in the generated report; it has not been independently validated.",
       validityBoundary: `${inputData.episodeDomain} - ${inputData.episodeEnvironment}`,
-      prohibitedContexts: "المعاملات التي تتنافى مع شروط العزل أو البيئات ذات الطبيعة المعاكسة للمجال الأصلي.",
+      prohibitedContexts: "Do not apply outside the original conditions without independent validation.",
       boundaryKeywords: ["performance", "latency", "architecture", "safety", "context"],
       ruleExtractionMarkdown: text,
     };
@@ -160,19 +156,19 @@ export const contextGatingStep = createStep({
   inputSchema: HeuristicExtractionOutputSchema,
   outputSchema: ContextGatingOutputSchema,
   execute: async ({ inputData }) => {
-    const mockRule: LearnedRule = {
+    const candidateRule: LearnedRule = {
       id: `rule_${Date.now()}`,
       title: inputData.ruleTitle,
       lessonLearned: inputData.lessonLearned,
       validityBoundary: inputData.validityBoundary,
       prohibitedContexts: inputData.prohibitedContexts,
       boundaryKeywords: inputData.boundaryKeywords,
-      confidenceScore: 0.95,
+      confidenceScore: 0, // Unvalidated candidate, not a learned fact.
       createdAt: new Date().toISOString().split("T")[0],
     };
 
     // Evaluate mathematically through our Context Gate Engine
-    const gateDecision = evaluateContextGate(inputData.targetNewContext, mockRule, 0.70);
+    const gateDecision = evaluateContextGate(inputData.targetNewContext, candidateRule, 0.70);
 
     const model = getGroqModel("GROQ_API_KEY_3", "qwen/qwen3.8-27b");
     const prompt = `أنت حارس بوابات السياق ومنع النقل السلبي (Context Gatekeeper & Safety Lead).
@@ -199,6 +195,7 @@ ${inputData.ruleExtractionMarkdown}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -211,7 +208,7 @@ ${inputData.ruleExtractionMarkdown}
       gateStatus: gateDecision.status,
       similarityScore: gateDecision.similarityScore,
       gatingReportMarkdown: text,
-      continualLearningStatus: "Context-Gated & Verified",
+      continualLearningStatus: "Heuristic context check completed; independent validation is pending",
     };
   },
 });

@@ -5,16 +5,16 @@ import { getGroqModel } from "@/lib/groq";
 
 export const ArchitectureEvaluationInputSchema = z.object({
   systemTitle: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("عنوان المعمارية أو القرار التقني المراد دراسته وتقييمه"),
   problemContext: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("السياق الهندسي والمشكلة والتحديات المطروحة بالتفصيل"),
   alternativesConsidered: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("البدائل التقنية المقترحة للمقارنة، مثل: Upstash Redis مقابل Supabase pgvector"),
   targetCriteria: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
     .default("زمن الاستجابة (Latency)، التكلفة الشهرية (Cost)، قابلية التوسع (Scalability)، وسهولة الصيانة (DX)")
     .describe("المعايير المرجعية للمفاضلة"),
@@ -59,17 +59,18 @@ export const tradeoffsSpikeStep = createStep({
 1. تحليل نقاط القوة والضعف (Pros & Cons) لكل بديل بدقة تقنية جراحية.
 2. تقييم المخاطر الخفية والديون التقنية المحتملة (Hidden Technical Debt & Failure Modes).
 3. إنشاء جدول مقارنة تفصيلي يستند إلى المعايير المحددة.
-4. تقديم الصياغة باللغة العربية الفصحى التقنية الرصينة.`;
+4. تقديم الصياغة in English.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
       systemTitle: inputData.systemTitle,
       tradeoffsAnalysis: text,
-      criteriaComparisonTable: "جدول المقايضات المعمارية مضمن في التقرير.",
+      criteriaComparisonTable: "Review the proposed tradeoffs in the report.",
     };
   },
 });
@@ -92,6 +93,7 @@ ${inputData.tradeoffsAnalysis}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -99,7 +101,7 @@ ${inputData.tradeoffsAnalysis}
       systemTitle: inputData.systemTitle,
       tradeoffsAnalysis: inputData.tradeoffsAnalysis,
       costLatencyReport: text,
-      resourceChecklist: "FinOps projection completed.",
+      resourceChecklist: "Draft cost assumptions require current provider pricing and workload measurements.",
     };
   },
 });
@@ -133,6 +135,7 @@ ${inputData.costLatencyReport}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -140,8 +143,8 @@ ${inputData.costLatencyReport}
       systemTitle: inputData.systemTitle,
       adrNumber: `ADR-${Math.floor(100 + Math.random() * 900)}`,
       adrMarkdown: text,
-      status: "Approved",
-      decisionSummary: "تم التقييم وصياغة وثيقة القرار المعماري ADR بنجاح.",
+      status: "Proposed",
+      decisionSummary: "Draft architecture decision prepared for human review.",
     };
   },
 });

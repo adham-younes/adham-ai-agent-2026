@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { visitorIdFromRequest } from "@/lib/visitor-identity";
-import { mastra } from "@/lib/mastra";
+import { mastra, initializeWorkflowStorage } from "@/lib/mastra";
 import {
   completeWorkflowRun,
   createWorkflowRun,
   hasDurableRunStore,
+  getWorkflowRun,
   listWorkflowRuns,
 } from "@/lib/platform/run-repository";
 import {
@@ -33,12 +34,24 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const includeHistory = url.searchParams.get("history") === "1";
-  const history = includeHistory ? await listWorkflowRuns(principalId) : [];
+  if (!hasDurableRunStore()) return NextResponse.json({ error: "DATABASE_UNAVAILABLE" }, { status: 503 });
+  let history;
+  try {
+    const runId = url.searchParams.get("runId");
+    if (runId) {
+      if (!/^[0-9a-f-]{36}$/i.test(runId)) return NextResponse.json({ error: "INVALID_RUN_ID" }, { status: 400 });
+      const run = await getWorkflowRun(principalId, runId);
+      return NextResponse.json(run ? { run } : { error: "RUN_NOT_FOUND" }, { status: run ? 200 : 404 });
+    }
+    history = includeHistory ? await listWorkflowRuns(principalId, Number(url.searchParams.get("limit") ?? 5)) : [];
+  } catch {
+    return NextResponse.json({ error: "DATABASE_UNAVAILABLE" }, { status: 503 });
+  }
 
   return NextResponse.json({
-    status: "online",
-    engine: "Mastra deterministic workflows",
-    storage: hasDurableRunStore() ? "postgres" : "ephemeral",
+    status: includeHistory ? "available" : "configured",
+    engine: "Mastra report workflows",
+    storage: "postgres",
     models: {
       orchestrator: Boolean(process.env.GROQ_API_KEY_1 || process.env.GROQ_API_KEY),
       executor: Boolean(process.env.GROQ_API_KEY_2 || process.env.GROQ_API_KEY),
@@ -61,9 +74,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "REQUEST_TOO_LARGE" }, { status: 413 });
   }
 
+  if (!hasDurableRunStore()) return NextResponse.json({ error: "DATABASE_UNAVAILABLE" }, { status: 503 });
+
   let body: unknown;
   try {
-    body = await request.json();
+    const text = await request.text();
+    if (new TextEncoder().encode(text).length > MAX_REQUEST_BYTES) return NextResponse.json({ error: "REQUEST_TOO_LARGE" }, { status: 413 });
+    body = JSON.parse(text);
   } catch {
     return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
   }
@@ -92,56 +109,52 @@ export async function POST(request: Request) {
     );
   }
 
-  const auditId = randomUUID();
-  try {
-    await createWorkflowRun({
-      id: auditId,
-      userId: principalId,
-      workflowId: workflow.id,
-      inputData: inputResult.data,
-    });
-
-    const workflowInstance = mastra.getWorkflow(workflow.key) as unknown as {
-      createRun(): Promise<{
-        readonly runId: string;
-        start(input: { readonly inputData: unknown }): Promise<unknown>;
-      }>;
-    };
-    const run = await workflowInstance.createRun();
-    const result = await run.start({ inputData: inputResult.data });
-    const durationMs = Math.round(performance.now() - startedAt);
-
-    await completeWorkflowRun({
-      id: auditId,
-      status: "succeeded",
-      durationMs,
-      outputData: result,
-    });
-
-    return NextResponse.json({
-      success: true,
-      workflowId: workflow.id,
-      runId: run.runId,
-      auditId,
-      durationMs,
-      result,
-    });
-  } catch (error: unknown) {
-    const durationMs = Math.round(performance.now() - startedAt);
-    const message = error instanceof Error ? error.message : "Workflow execution failed.";
-    try {
-      await completeWorkflowRun({
-        id: auditId,
-        status: "failed",
-        durationMs,
-        errorMessage: message,
-      });
-    } catch {
-      // Preserve the original workflow failure when audit persistence also fails.
-    }
-    return NextResponse.json(
-      { success: false, error: "WORKFLOW_EXECUTION_FAILED", message, auditId, durationMs },
-      { status: 500 },
-    );
+  const idempotencyKey = requestResult.data.idempotencyKey ?? request.headers.get("idempotency-key");
+  if (!idempotencyKey || !/^[a-zA-Z0-9_-]{8,128}$/.test(idempotencyKey)) {
+    return NextResponse.json({ error: "IDEMPOTENCY_KEY_REQUIRED" }, { status: 400 });
   }
+  const auditId = randomUUID();
+  let created;
+  try {
+    created = await createWorkflowRun({ id: auditId, userId: principalId,
+      workflowId: workflow.id, inputData: inputResult.data, idempotencyKey });
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error && error.message === "IDEMPOTENCY_CONFLICT" ? "IDEMPOTENCY_CONFLICT" : "DATABASE_UNAVAILABLE" },
+      { status: error instanceof Error && error.message === "IDEMPOTENCY_CONFLICT" ? 409 : 503 });
+  }
+  if (!created.created) {
+    const saved = created.run;
+    return NextResponse.json({ success: saved.status === "succeeded", status: saved.status,
+      workflowId: saved.workflowId, auditId: saved.id, runId: saved.id,
+      durationMs: saved.durationMs, result: saved.outputData, message: saved.errorMessage },
+      { status: saved.status === "running" ? 202 : saved.status === "failed" ? 500 : 200 });
+  }
+
+  let result: unknown;
+  let failed = false;
+  let storageReady = false;
+  try {
+    await initializeWorkflowStorage();
+    storageReady = true;
+    const workflowInstance = mastra.getWorkflow(workflow.key);
+    const run = await workflowInstance.createRun({ runId: auditId });
+    result = await run.start({ inputData: inputResult.data as never });
+    failed = !result || typeof result !== "object" || !("status" in result) || result.status !== "success";
+  } catch {
+    failed = true;
+  }
+  if (failed) result = { status: "failed", error: "Workflow step failed" };
+  const durationMs = Math.round(performance.now() - startedAt);
+  const message = failed ? "The report could not be completed. Retry with a new request after checking provider availability." : undefined;
+  try {
+    await completeWorkflowRun({ id: auditId, userId: principalId,
+      status: failed ? "failed" : "succeeded", durationMs,
+      outputData: result === undefined ? null : JSON.parse(JSON.stringify(result, (_key, value) => value instanceof Error ? { message: "Workflow step failed" } : value)),
+      errorMessage: message });
+  } catch {
+    return NextResponse.json({ success: false, error: "DATABASE_UNAVAILABLE", auditId, status: "persistence-unconfirmed" }, { status: 503 });
+  }
+  return NextResponse.json({ success: !failed, status: failed ? "failed" : "succeeded",
+    workflowId: workflow.id, auditId, runId: auditId, durationMs, result,
+    ...(failed ? { error: storageReady ? "WORKFLOW_EXECUTION_FAILED" : "DATABASE_UNAVAILABLE", message } : {}) }, { status: !storageReady ? 503 : failed ? 500 : 200 });
 }

@@ -1,4 +1,6 @@
 import { Pool } from "pg";
+import { readFileSync } from "node:fs";
+import { getCACertificates } from "node:tls";
 
 const connectionString =
   process.env.POSTGRES_URL ??
@@ -31,6 +33,14 @@ const globalDatabase = globalThis as typeof globalThis & {
   agentPlatformPool?: Pool;
 };
 
+export function postgresTls(value: string) {
+  const hostname = new URL(value).hostname;
+  if (["localhost", "127.0.0.1", "[::1]"].includes(hostname)) return undefined;
+  const configuredCa = process.env.POSTGRES_CA_CERT?.replace(/\\n/g, "\n")
+    ?? (process.env.POSTGRES_CA_CERT_PATH ? readFileSync(process.env.POSTGRES_CA_CERT_PATH, "utf8") : undefined);
+  return { rejectUnauthorized: true, ca: configuredCa ?? getCACertificates("default") };
+}
+
 export const database = connectionString
   ? (globalDatabase.agentPlatformPool ??=
       new Pool({
@@ -38,7 +48,7 @@ export const database = connectionString
         max: 2,
         idleTimeoutMillis: 10_000,
         connectionTimeoutMillis: 5_000,
-        ssl: connectionString.includes("localhost") ? undefined : { rejectUnauthorized: false },
+        ssl: postgresTls(connectionString),
       }))
   : undefined;
 

@@ -4,8 +4,8 @@ import { z } from "zod";
 import { getGroqModel } from "@/lib/groq";
 
 export const DbEngineeringInputSchema = z.object({
-  domainName: z.string().describe("اسم المجال أو النظام المستهدف، مثل: eCommerce أو Multi-tenant SaaS"),
-  entitiesDescription: z.string().describe("وصف الكيانات، العلاقات، وحقول البيانات المطلوبة"),
+  domainName: z.string().trim().min(1).max(100000).describe("اسم المجال أو النظام المستهدف، مثل: eCommerce أو Multi-tenant SaaS"),
+  entitiesDescription: z.string().trim().min(1).max(100000).describe("وصف الكيانات، العلاقات، وحقول البيانات المطلوبة"),
   tenantModel: z.enum(["single-tenant", "multi-tenant"]).default("multi-tenant"),
 });
 
@@ -47,13 +47,14 @@ export const schemaDesignStep = createStep({
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
       domainName: inputData.domainName,
       tableDefinitions: text,
-      relationshipDiagram: "Entity-Relationship model mapped successfully.",
+      relationshipDiagram: "Review the proposed relationships in the generated schema; database validation is pending.",
     };
   },
 });
@@ -76,6 +77,7 @@ ${inputData.tableDefinitions}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -106,13 +108,14 @@ ${inputData.optimizedIndexesSql}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
       domainName: inputData.domainName,
       completeMigrationSql: text,
-      verificationInstructions: "جاهز للتطبيق عبر لوحة تحكم Supabase SQL Editor أو عبر أداة supabase db push.",
+      verificationInstructions: "Draft SQL and policies require human review and testing against a database copy before applying migrations.",
     };
   },
 });

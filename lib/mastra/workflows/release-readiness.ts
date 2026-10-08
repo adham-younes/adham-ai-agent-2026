@@ -5,7 +5,7 @@ import { getGroqModel } from "@/lib/groq";
 
 export const ReleaseReadinessInputSchema = z.object({
   appName: z
-    .string()
+    .string().trim().min(1).max(100000)
     .default("adham-ai-agent-2026")
     .describe("اسم التطبيق أو المنظومة المستهدفة للنشر"),
   targetEnvironment: z
@@ -13,10 +13,10 @@ export const ReleaseReadinessInputSchema = z.object({
     .default("production")
     .describe("بيئة النشر المستهدفة"),
   releaseScope: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("نطاق الإصدار والتحديثات والميزات المطلوب تدقيق جاهزيتها للنشر"),
   criticalIntegrations: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
     .default("AI runtime, Supabase PostgreSQL, Vercel")
     .describe("الخدمات السحابية والربط الحرج"),
@@ -66,10 +66,11 @@ export const envAuditStep = createStep({
 1. تدقيق أمان المتغيرات البيئية واعتمادات السحابة (Zero Secret Exposure: منع أي تسريب للقيم السرية).
 2. إعداد قائمة فحص دقيقة لجميع المتغيرات البيئية المطلوبة للإنتاج (Environment Matrix).
 3. تقييم أمان الاتصال بقواعد البيانات وخدمات الطرف الثالث (SSL/TLS, Connection Pooling, Timeouts).
-4. تقديم التقرير باللغة العربية الفصحى التقنية الدقيقة.`;
+4. تقديم التقرير in English.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -104,6 +105,7 @@ ${inputData.envAuditReport}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -131,11 +133,12 @@ ${inputData.verificationMatrix}
 المطلوب:
 1. صياغة استراتيجية النشر بدون توقف (Zero-Downtime Deployment / Atomic Swap) على Vercel Edge.
 2. خطة التراجع الفوري عند الطوارئ (Instant Rollback Plan) لضمان عدم تأثر المستخدمين في حالة أي خلل غير متوقع.
-3. صياغة مذكرة إطلاق تنفيذية رسمية (Executive Release Notes) باللغة العربية والإنجليزية توثق التغييرات، والتحسينات، والفوائد التقنية.
+3. صياغة مذكرة إطلاق تنفيذية رسمية (Executive Release Notes) in English توثق التغييرات، والتحسينات، والفوائد التقنية.
 4. تحديد أمر النشر النهائي الصارم.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -144,10 +147,10 @@ ${inputData.verificationMatrix}
       targetEnvironment: inputData.targetEnvironment,
       envAuditReport: inputData.envAuditReport,
       verificationMatrix: inputData.verificationMatrix,
-      zeroDowntimeStrategy: "Vercel Instant Atomic Deployment with Preview Verification.",
-      rollbackPlan: "Fast rollback via `vercel rollback <deployment-url>` without data corruption.",
+      zeroDowntimeStrategy: "Proposed deployment strategy; verify application and migration compatibility before release.",
+      rollbackPlan: "Review application rollback and database compatibility; no rollback has been executed.",
       releaseNotesMarkdown: text,
-      deploymentCommand: "git push origin main && vercel --prod",
+      deploymentCommand: "After approval and required checks: eve deploy --non-interactive --yes",
     };
   },
 });

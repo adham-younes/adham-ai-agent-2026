@@ -4,10 +4,10 @@ import { z } from "zod";
 import { getGroqModel } from "@/lib/groq";
 
 export const SpecInputSchema = z.object({
-  featureTitle: z.string().describe("عنوان الميزة أو النظام المطلوب تنفيذه"),
-  userRequirements: z.string().describe("المتطلبات الوظيفية والمعمارية بالتفصيل"),
+  featureTitle: z.string().trim().min(1).max(100000).describe("عنوان الميزة أو النظام المطلوب تنفيذه"),
+  userRequirements: z.string().trim().min(1).max(100000).describe("المتطلبات الوظيفية والمعمارية بالتفصيل"),
   targetStack: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
     .default("Next.js 16 + Tailwind CSS + Supabase PostgreSQL"),
 });
@@ -21,7 +21,7 @@ export const SpecOutputSchema = z.object({
   acceptanceCriteria: z.array(z.string()),
 });
 
-export const DbSchemaOutputSchema = z.object({
+export const DbSchemaOutputSchema = SpecOutputSchema.extend({
   featureTitle: z.string(),
   architectureSummary: z.string(),
   sqlSchema: z.string(),
@@ -29,14 +29,14 @@ export const DbSchemaOutputSchema = z.object({
   migrationStrategy: z.string(),
 });
 
-export const CodeOutputSchema = z.object({
+export const CodeOutputSchema = DbSchemaOutputSchema.extend({
   featureTitle: z.string(),
   generatedCode: z.string(),
   typeContracts: z.string(),
   verificationChecklist: z.string(),
 });
 
-export const SecurityQualityOutputSchema = z.object({
+export const SecurityQualityOutputSchema = CodeOutputSchema.extend({
   featureTitle: z.string(),
   auditStatus: z.enum(["PASSED", "WARNING", "FAILED"]),
   securityReport: z.string(),
@@ -61,20 +61,22 @@ export const specArchitectureStep = createStep({
 3. هيكل المكونات والمسارات (Component Tree).
 4. عقود واجهات برمجة التطبيقات ونقاط النهاية (API Contracts).
 5. معايير القبول الصارمة للتحقق (Acceptance Criteria).
-أجب باللغة العربية الفصحى التقنية مع استخدام المصطلحات البرمجية الدقيقة.`;
+أجب in English مع استخدام المصطلحات البرمجية الدقيقة.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
+      ...inputData,
       featureTitle: inputData.featureTitle,
       architectureSummary: text,
-      userJourney: "راجع قسم رحلة المستخدم في المسودة المعمارية؛ لم يُختبر بعد في التطبيق.",
-      componentTree: "راجع هيكل المكونات المقترح في المسودة المعمارية؛ لم تُنشأ ملفات بعد.",
-      apiContracts: "راجع عقود API المقترحة في المسودة المعمارية؛ لم تُنفذ أو تُختبر بعد.",
-      acceptanceCriteria: ["تطبيق الملفات فعلياً", "نجاح فحص الأنواع والبناء", "اختبار الرحلة وسلوك الصلاحيات في بيئة حقيقية"],
+      userJourney: "Review the proposed user journey in the draft; it has not been tested in the application.",
+      componentTree: "Review the proposed component structure; no files have been created.",
+      apiContracts: "Review the proposed API contracts; they have not been implemented or tested.",
+      acceptanceCriteria: ["Implement the proposed files", "Pass type checking and the production build", "Verify the user journey and access controls in a real environment"],
     };
   },
 });
@@ -97,15 +99,17 @@ export const databaseSchemaStep = createStep({
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
+      ...inputData,
       featureTitle: inputData.featureTitle,
       architectureSummary: inputData.architectureSummary,
       sqlSchema: text,
-      rlsPolicies: "مقترح ضمن مسودة SQL؛ لم تُشغّل السياسات أو تُختبر بعد.",
-      migrationStrategy: "تحتاج خطة هجرة مفصلة واختباراً على نسخة من قاعدة البيانات قبل التنفيذ.",
+      rlsPolicies: "Proposed in the SQL draft; policies have not been applied or tested.",
+      migrationStrategy: "Review the migration plan and test it against a database copy before applying it.",
     };
   },
 });
@@ -131,14 +135,16 @@ ${inputData.sqlSchema}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
+      ...inputData,
       featureTitle: inputData.featureTitle,
       generatedCode: text,
-      typeContracts: "افحص العقود المقترحة في النص المولد؛ لم يُشغّل فحص أنواع.",
-      verificationChecklist: "طبّق الكود في الملفات، ثم شغّل typecheck والبناء والاختبارات ذات الصلة.",
+      typeContracts: "Review the proposed contracts; no typecheck has been run.",
+      verificationChecklist: "Apply the proposed code, then run typecheck, build, and relevant tests.",
     };
   },
 });
@@ -164,14 +170,16 @@ ${inputData.generatedCode}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
+      ...inputData,
       featureTitle: inputData.featureTitle,
       auditStatus: "WARNING" as const,
       securityReport: text,
-      finalDeliverable: `اكتملت مراجعة الميزة [${inputData.featureTitle}] نظرياً. يلزم تطبيق الكود وتشغيل فحوص حتمية على مساحة العمل قبل اعتمادها للإنتاج.`,
+      finalDeliverable: `Draft implementation for [${inputData.featureTitle}] prepared for review. Apply the proposed code and SQL, then run required checks before production approval.`,
     };
   },
 });

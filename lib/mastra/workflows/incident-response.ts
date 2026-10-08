@@ -5,13 +5,13 @@ import { getGroqModel } from "@/lib/groq";
 
 export const IncidentResponseInputSchema = z.object({
   incidentTitle: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("عنوان الحادث أو الإنذار، مثل: انقطاع الخدمة 504 وتجاوز حد اتصالات قاعدة البيانات"),
   errorLogs: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("سجلات الخطأ، الـ Stack Trace، أو حمولة الإنذار من Sentry/Datadog"),
   affectedService: z
-    .string()
+    .string().trim().min(1).max(100000)
     .describe("الخدمة أو النقطة المتأثرة، مثل: api/checkout أو Supabase Connection Pool"),
   severityLevel: z
     .enum([
@@ -23,9 +23,9 @@ export const IncidentResponseInputSchema = z.object({
     .default("P0 - Critical Outage")
     .describe("مستوى خطورة الحادث وفق معايير SRE"),
   recentChanges: z
-    .string()
+    .string().trim().min(1).max(100000)
     .optional()
-    .default("تحديث أخير للإصدار مع تعديل في إعدادات الاتصال وحجم الـ Pool")
+    .default("Recent changes were not provided.")
     .describe("التغييرات أو عمليات النشر الأخيرة المرتبطة بالحادث"),
 });
 
@@ -93,10 +93,11 @@ ${inputData.errorLogs}
 1. تقييم نطاق الضرر (Blast Radius) وأثر الحادث على المستخدمين وسلامة البيانات.
 2. تحديد مستوى الأولوية الحقيقي وحالة الخطر اللحظي.
 3. وضع استراتيجية احتواء عاجلة (Immediate Containment Strategy) لوقف تفاقم الأزمة (مثل تفعيل وضع الصيانة، خفض الحمل، أو حظر الـ Traffic الضار).
-4. الصياغة باللغة العربية الفصحى التقنية الرصينة بأسلوب SRE محترف.`;
+4. الصياغة in English بأسلوب SRE محترف.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -132,6 +133,7 @@ ${inputData.errorLogs}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -141,7 +143,7 @@ ${inputData.errorLogs}
       affectedService: inputData.affectedService,
       triageReport: inputData.triageReport,
       rcaDiagnosis: text,
-      failureMechanism: "تم عزل السبب الجذري وآلية الفشل التقنية بنجاح.",
+      failureMechanism: "The report proposes a failure mechanism; confirm it against observed logs and system behavior.",
     };
   },
 });
@@ -166,6 +168,7 @@ ${inputData.rcaDiagnosis}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -176,8 +179,8 @@ ${inputData.rcaDiagnosis}
       triageReport: inputData.triageReport,
       rcaDiagnosis: inputData.rcaDiagnosis,
       mitigationRunbook: text,
-      hotfixCodeSnippet: "// تم إرفاق رقعة الإصلاح البرمجية ضمن دليل الإجراءات أعلاه",
-      verificationCommands: "pnpm test && curl -I https://api.production/healthz",
+      hotfixCodeSnippet: "// Review the proposed hotfix in the runbook; it has not been applied.",
+      verificationCommands: "Review the runbook and run relevant tests plus a health check against your actual service URL.",
     };
   },
 });
@@ -221,6 +224,7 @@ ${inputData.mitigationRunbook}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -234,7 +238,7 @@ ${inputData.mitigationRunbook}
       hotfixCodeSnippet: inputData.hotfixCodeSnippet,
       verificationCommands: inputData.verificationCommands,
       postMortemMarkdown: text,
-      incidentStatus: "Resolved & Post-Mortem Published",
+      incidentStatus: "Draft incident report; resolution and publication are unverified",
     };
   },
 });

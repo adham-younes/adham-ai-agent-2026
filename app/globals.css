@@ -123,44 +123,6 @@ button:focus-visible,a:focus-visible { outline: 2px solid var(--ring); outline-o
 .status-dot { display: inline-flex; width: 6px; height: 6px; flex-shrink: 0; border-radius: 99px; background: #53b559; }
 .status-dot-busy { animation: status-pulse 1.1s ease-in-out infinite; }
 @keyframes status-pulse { 50% { opacity: .35; } }
-.demo-conversation { flex: 1; overflow-y: auto; padding: 24px 8% 180px; }
-.demo-notice { color: #999999; font-size: 11px; text-align: right; margin-bottom: 14px; }
-.demo-user { display: flex; justify-content: flex-end; align-items: center; gap: 15px; margin-bottom: 28px; }
-.demo-user p { border: 1px solid #303030; border-radius: 10px; padding: 16px; background: #191919; font-size: 14px; margin: 0; }
-.demo-response { margin: 14px 0 18px 52px; font-size: 15px; line-height: 1.7; }
-.plan-card,.artifact-card { margin-left: 52px; border: 1px solid #242424; border-radius: 10px; background: #111111; }
-.plan-card { padding: 0 14px; margin-bottom: 22px; }
-.plan-row { display: flex; align-items: center; gap: 18px; padding: 17px 5px; border-bottom: 1px solid #242424; }
-.plan-row:last-child { border-bottom: 0; }
-.plan-row > div { flex: 1; }
-.plan-row strong,.execution-stage strong { display: block; font-size: 14px; font-weight: 550; }
-.plan-row small,.execution-stage small { display: block; font-size: 12px; color: #999999; margin-top: 5px; line-height: 1.5; }
-.stage-icon { display: flex; flex: none; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: #53b559; color: #071209; }
-.stage-icon svg { width: 19px; height: 19px; }
-.stage-running { border: 2px solid #53b559; background: transparent; color: #53b559; }
-.stage-status { font-size: 12px; color: #999999; }
-.accent-text { font-size: 12px; color: #66c66d; }
-.artifact-tabs { display: flex; border-bottom: 1px solid #242424; padding: 0 14px; gap: 18px; }
-.artifact-tab { display: flex; gap: 10px; align-items: center; border-bottom: 3px solid transparent; padding: 17px 10px 13px; font-size: 14px; color: #999999; }
-.artifact-tab.active { color: #66c66d; border-bottom-color: #53b559; }
-.artifact-body { padding: 13px; }
-.code-card { border: 1px solid #242424; border-radius: 9px; overflow: hidden; }
-.code-title { display: flex; gap: 12px; align-items: center; padding: 12px 14px; font-size: 13px; background: #151515; }
-.code-title span { margin-left: auto; font-size: 11px; color: #999999; }
-.code-card pre { margin: 0; padding: 12px 0; color: #9bd29f; font-size: 13px; line-height: 1.75; background: #000000; }
-.line-number { display: inline-block; width: 42px; padding-left: 16px; color: #737373; user-select: none; }
-.changed-file { display: flex; align-items: center; gap: 14px; padding: 12px 15px; border: 1px solid #242424; border-radius: 9px; margin-top: 10px; background: #151515; }
-.changed-file > svg { width: 18px; height: 18px; color: #b3b3b3; }
-.changed-file > div { flex: 1; }
-.changed-file strong { display: block; font-size: 12px; }
-.changed-file small { display: block; color: #999999; font-size: 12px; margin-top: 4px; }
-.changed-file > span { color: #40c977; font-size: 12px; }
-.preview-example { padding: 28px; color: #b3b3b3; line-height: 1.8; }
-.preview-example h3 { color: #fff; }
-.preview-example small { color: #999999; }
-.example-checks { padding: 16px; font-size: 13px; }
-.example-checks p { display: flex; align-items: center; gap: 10px; padding: 14px 0; }
-.example-checks span { margin-left: auto; font-size: 11px; color: #66c66d; }
 .execution-panel { display: none; width: 320px; flex: none; padding: 32px 24px; border-left: 1px solid #242424; background: #090909; overflow-y: auto; }
 .execution-panel-open { display: block; }
 .execution-heading { display: flex; align-items: center; justify-content: space-between; }

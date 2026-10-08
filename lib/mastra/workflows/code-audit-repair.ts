@@ -4,9 +4,9 @@ import { z } from "zod";
 import { getGroqModel } from "@/lib/groq";
 
 export const CodeAuditInputSchema = z.object({
-  targetFilePath: z.string().describe("مسار الملف أو اسم المكون المستهدف"),
-  codeSnippet: z.string().describe("محتوى الكود المراد تدقيقه وإصلاحه"),
-  issueDescription: z.string().optional().describe("وصف المشكلة أو الخلل إن وجد"),
+  targetFilePath: z.string().trim().min(1).max(100000).describe("مسار الملف أو اسم المكون المستهدف"),
+  codeSnippet: z.string().trim().min(1).max(100000).describe("محتوى الكود المراد تدقيقه وإصلاحه"),
+  issueDescription: z.string().trim().min(1).max(100000).optional().describe("وصف المشكلة أو الخلل إن وجد"),
 });
 
 export const CodeAuditOutputSchema = z.object({
@@ -42,10 +42,11 @@ ${inputData.codeSnippet}
 المطلوب:
 1. تحديد السبب الجذري لأي مشكلة أو ثغرة أمنية (SQL injection, XSS, memory leaks, unhandled errors).
 2. تقييم تطابق الأنواع والتحقق من عدم وجود escapes مثل 'any'.
-3. تقديم تشخيص دقيق باللغة العربية الفصحى التقنية.`;
+3. تقديم تشخيص دقيق in English.`;
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
@@ -81,14 +82,15 @@ ${inputData.codeSnippet}
 
     const { text } = await generateText({
       model: model as any,
+      system: "Write every report, heading, and explanation in English. Produce drafts for human review. You cannot run commands, inspect live infrastructure, deploy software, approve decisions, or resolve incidents. Never claim execution, approval, publication, verified tests, or observed facts without supplied evidence. Label assumptions and unknowns explicitly. Do not invent dates, authors, measurements, or verification outcomes; omit them unless supplied.",
       prompt,
     });
 
     return {
       targetFilePath: inputData.targetFilePath,
       repairedCode: text,
-      patchExplanation: "هذه رقعة مقترحة داخل الرد المولد. لم تُكتب إلى الملف ولم تُختبر؛ راجعها وطبّقها ثم تحقق.",
-      verificationCommand: "شغّل فحص الأنواع والبناء والاختبار المناسب بعد تطبيق الرقعة داخل المشروع.",
+      patchExplanation: "This generated patch has not been written to files or tested. Review, apply, and verify it.",
+      verificationCommand: "Run typecheck, build, and relevant tests after applying the patch.",
     };
   },
 });

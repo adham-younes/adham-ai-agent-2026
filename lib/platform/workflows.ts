@@ -124,6 +124,7 @@ const inputSchemas: Record<WorkflowId, z.ZodType> = {
 export const workflowRequestSchema = z.object({
   workflowId: z.string().trim().min(1).max(80),
   inputData: z.record(z.string(), z.unknown()),
+  idempotencyKey: z.string().trim().min(8).max(128).optional(),
 });
 
 export function resolveWorkflow(id: string): WorkflowDefinition | undefined {
@@ -133,4 +134,3 @@ export function resolveWorkflow(id: string): WorkflowDefinition | undefined {
 export function validateWorkflowInput(id: WorkflowId, input: unknown) {
   return inputSchemas[id].safeParse(input);
 }
-
