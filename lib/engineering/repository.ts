@@ -305,6 +305,8 @@ export async function claimRun(
         throw new Error("PROJECT_LEASE_EXPIRED");
       return { created: false, run: map<EngineeringRun>(replay.rows[0]) };
     }
+    if (p.active_task_id !== input.taskId)
+      throw new Error("ACTIVE_TASK_BINDING_CHANGED");
     if (p.active_run_id) {
       if (new Date(p.lease_expires_at).getTime() > Date.now()) {
         const r = await db.query(
@@ -563,12 +565,14 @@ export async function acceptTask(owner: string, p: string, id: string) {
     return map<Task>(r.rows[0]);
   });
 }
-// Caller must first await a provider-confirmed stop of the bound sandbox.
+// Keep the project row locked across the provider-confirmed stop, fencing both
+// competing completion and new claims until the expired attempt is settled.
 // Kept out of the HTTP API: only the trusted runtime recovery adapter invokes it.
 export async function recoverExpiredRun(
   owner: string,
   p: string,
   expectedRunId: string,
+  stopSandbox: () => Promise<void>,
 ) {
   return owned(owner, async (db) => {
     const proj = await project(db, owner, p, true);
@@ -578,6 +582,7 @@ export async function recoverExpiredRun(
       new Date(proj.lease_expires_at).getTime() > Date.now()
     )
       throw new Error("RECOVERY_NOT_ELIGIBLE");
+    await stopSandbox();
     const result = await db.query(
       "update public.engineering_runs set status='failed',error='Expired execution stopped and recovered',completed_at=now() where owner_id=$1 and project_id=$2 and id=$3 and status='running' returning task_id",
       [owner, p, expectedRunId],

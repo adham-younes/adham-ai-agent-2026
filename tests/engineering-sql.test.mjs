@@ -10,7 +10,7 @@ test(
     const { PGlite } = await import(process.env.PGLITE_MODULE);
     const db = new PGlite();
     await db.exec(
-      "create role anon; create role authenticated; create role agent_runtime; create table public.agent_workflow_runs (id uuid primary key,user_id text not null);",
+      "create role anon; create role authenticated; create role agent_runtime; create table public.agent_workflow_runs (id uuid primary key,user_id text not null,status text not null default 'running'); grant select,insert,update on public.agent_workflow_runs to agent_runtime;",
     );
     await db.exec(
       await readFile(
@@ -21,6 +21,7 @@ test(
         "utf8",
       ),
     );
+    await db.exec(await readFile(new URL("../db/migrations/0009_draft_attempt_guards.sql", import.meta.url), "utf8"));
     const query = (sql, values) => db.query(sql, values);
     const validations = await readFile(
       new URL("../lib/engineering/validation.ts", import.meta.url),
@@ -124,6 +125,8 @@ test(
       requiredChecks: [{ id: "test", command: "node --test" }],
       requiredArtifacts: [],
     });
+    await assert.rejects(r.claimRun("owner", { projectId: p.id, taskId: t2.id, sessionId: "session", sandboxId: "sandbox", capability: "check", idempotencyKey: "wrong-active-task" }), /ACTIVE_TASK_BINDING_CHANGED/);
+    await r.setActiveTask("owner", p.id, t2.id);
     const failed = await r.claimRun("owner", {
       projectId: p.id,
       taskId: t2.id,
@@ -236,12 +239,26 @@ test(
         "owner",
         p.id,
         "00000000-0000-0000-0000-000000000001",
+        async () => { throw new Error("Must not stop a newer run"); },
       ),
       /RECOVERY_NOT_ELIGIBLE/,
     );
-    await r.recoverExpiredRun("owner", p.id, stale.run.id);
+    await r.recoverExpiredRun("owner", p.id, stale.run.id, async () => {});
     assert.equal((await r.getProject("owner", p.id)).activeRunId, null);
     assert.equal((await r.getTask("owner", p.id, t2.id)).status, "failed");
+    const report = await r.createTask("owner", p.id, { title: "Draft lifecycle", kind: "analysis", acceptanceCriteria: ["Review report"], requiredChecks: [], requiredArtifacts: [] });
+    const firstDraft = "00000000-0000-0000-0000-000000000011";
+    const secondDraft = "00000000-0000-0000-0000-000000000012";
+    await db.query("insert into public.agent_workflow_runs(id,user_id,status) values($1,'owner','failed'),($2,'owner','succeeded')", [firstDraft, secondDraft]);
+    await r.attachWorkflowRun("owner", p.id, report.id, firstDraft);
+    assert.equal((await r.settleWorkflowDraft("owner", p.id, report.id, firstDraft)).status, "failed");
+    await r.attachWorkflowRun("owner", p.id, report.id, secondDraft);
+    const settled = await r.settleWorkflowDraft("owner", p.id, report.id, secondDraft);
+    assert.equal(settled.status, "needs_review");
+    assert.equal((await r.settleWorkflowDraft("owner", p.id, report.id, firstDraft)).version, settled.version);
+    assert.equal((await r.settleWorkflowDraft("owner", p.id, report.id, secondDraft)).version, settled.version);
+    await r.acceptTask("owner", p.id, report.id);
+    assert.equal((await r.settleWorkflowDraft("owner", p.id, report.id, firstDraft)).status, "accepted");
     await db.exec("reset role;");
     const p2 = await r.createProject("foreign", {
       name: "Foreign",

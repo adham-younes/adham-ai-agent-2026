@@ -13,8 +13,7 @@ export default defineTool({
   if(!project.activeRunId || !project.leaseExpiresAt || new Date(project.leaseExpiresAt).getTime()>Date.now()) throw Error('NO_EXPIRED_PROJECT_LEASE');
   const sandbox=await ctx.getSandbox();
   if(project.sandboxId!==sandbox.id) throw Error('BOUND_SANDBOX_REQUIRED');
-  await sandbox.stop();
-  await recoverExpiredRun(owner,project.id,project.activeRunId);
+  await recoverExpiredRun(owner,project.id,project.activeRunId,async()=>{await sandbox.stop();});
   return {status:'recovered',oldRunId:project.activeRunId,message:'Sandbox stopped and old attempt marked failed. Start a new turn to retry.'};
  },
 });

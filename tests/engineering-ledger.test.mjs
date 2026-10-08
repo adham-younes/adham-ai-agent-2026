@@ -113,9 +113,34 @@ globalThis.engineeringTestDatabase = {
 const repo = await import(
   `data:text/javascript;base64,${Buffer.from(repositoryJs).toString("base64")}`
 );
+test("claim revalidates active task under lock before a child can mutate", async () => {
+  query = async (sql) => {
+    if (sql.includes("engineering_projects")) return { rows: [{ id: "project", session_id: "session", active_task_id: "task-b", sandbox_id: "sandbox" }] };
+    if (sql.includes("engineering_tasks")) return { rows: [{ id: "task-a", status: "planned" }] };
+    if (sql.includes("engineering_runs")) return { rows: [] };
+    throw new Error("Unexpected write before task authority check");
+  };
+  await assert.rejects(repo.claimRun("owner", { projectId: "project", taskId: "task-a", sessionId: "session", sandboxId: "sandbox", parentCallId: "parent", rootSessionId: "session", capability: "write", idempotencyKey: "child" }), /ACTIVE_TASK_BINDING_CHANGED/);
+});
+test("recovery reserves expected run before stopping its sandbox", async () => {
+  let stopped = false;
+  query = async (sql) => {
+    if (sql.includes("engineering_projects")) return { rows: [{ active_run_id: "new-run", lease_expires_at: new Date(Date.now() - 1000) }] };
+    throw new Error("Unexpected mutation");
+  };
+  await assert.rejects(repo.recoverExpiredRun("owner", "project", "old-run", async () => { stopped = true; }), /RECOVERY_NOT_ELIGIBLE/);
+  assert.equal(stopped, false);
+  query = async (sql) => {
+    if (sql.startsWith("select") && sql.includes("engineering_projects")) { assert.match(sql, /for update/); return { rows: [{ active_run_id: "old-run", lease_expires_at: new Date(Date.now() - 1000) }] }; }
+    assert.equal(stopped, true);
+    return { rows: [{ task_id: "task" }] };
+  };
+  await repo.recoverExpiredRun("owner", "project", "old-run", async () => { stopped = true; });
+});
 const project = {
   id: "project",
   owner_id: "owner",
+  active_task_id: "task",
   session_id: "session",
   sandbox_id: "sandbox",
   workspace_version: 2,
