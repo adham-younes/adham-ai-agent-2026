@@ -1,19 +1,16 @@
-# STATUS — 2026-10-08
-- Goal: luxury outcome workspace and real Supabase/Eve integration deployed.
-- Production: https://adham-ai-agent-2026.vercel.app
-- Final deployment dpl_Akc1ZYd874TNof7iYuqyP3VoWTSo is Ready; health 200.
-- Preserved black/white/green; new fonts and seven typed deliverable forms.
-- Removed fake demos; real scoped history, detail and Markdown download.
-- Workflows use durable Mastra storage, validation, idempotency and failure persistence.
-- Explicit scoped Supabase memory works across conversations and isolates visitors.
-- Applied migrations 0006/0007; bootstrap 0000 supports fresh migration order.
-- TLS verifies the official Supabase CA; certificate validation remains enabled.
-- 43 Mastra tables initialized; anon/authenticated cannot SELECT them.
-- Public application tables retain RLS + FORCE RLS; existing user records retained.
-- Typecheck, 33 tests, production Next/Eve build and diff checks passed.
-- Live workflow/replay/409/422/404, memory, settings and session restoration passed.
-- Browser verified result/conversation reload; no console errors.
-- Evidence: docs/verification/2026-10-08-workroom-production.md and screenshots.
-- Limits: only code review generated live; other workflows share the tested runtime.
-- Outputs are proposals; they do not execute repairs, migrations or deployment.
-- Follow-up: optional cross-device accounts and broader live workflow coverage.
+# STATUS — 2026-10-09
+- Current request: rebuild the app into a mature software engineering project workstation.
+- User approved Project → Tasks → Execution → Files/Artifacts → Checks, with task-scoped chat.
+- User selected Evergreen while preserving the current black/off-white/green identity.
+- Current production remains https://adham-ai-agent-2026.vercel.app (previous implementation).
+- New branch: codex/engineering-workspace; product code has not changed in this phase.
+- Written spec: docs/superpowers/specs/2026-10-09-engineering-workspace-design.md.
+- Written-spec review is pending; next stage is the implementation plan.
+- Audit found seven agent Mastra tools bypass the durable HTTP execution service.
+- Those tools report DRAFT_READY without checking returned workflow status.
+- UI labels turn completion as task completion and does not expose a project/task/check ledger.
+- Measured current labels: 7–8px; first view has 21 visible buttons/links.
+- Better Design copy audit: two serious findings; selected Evergreen kit uses Radix/Phosphor duotone.
+- Reuse MagicPath project 458965191527391232 after execution prerequisites are approved.
+- Preserve existing Eve runtime/model, Supabase memory/settings, session grants and legacy history.
+- No new migrations, package installations, external design builds or deployment have occurred.
