@@ -1,3 +1,5 @@
+import { resolveEngineeringBinding, type ProjectRuntimeContext } from "@/agent/lib/project-context";
+import { getProject, getTask, attachWorkflowRun, settleWorkflowDraft } from "@/lib/engineering/repository";
 import { createHash, randomUUID } from "node:crypto";
 import { mastra, initializeWorkflowStorage } from "@/lib/mastra";
 import { completeWorkflowRun, createWorkflowRun, hasDurableRunStore } from "./run-repository";
@@ -8,10 +10,11 @@ interface WorkflowServiceInput {
   workflowId: string;
   inputData: unknown;
   idempotencyKey: string | null | undefined;
+  projectContext?: { projectId: string; taskId: string };
 }
 interface ServiceResult { httpStatus: number; body: Record<string, unknown> }
 const dependencies = { randomUUID, mastra, initializeWorkflowStorage, completeWorkflowRun, createWorkflowRun,
-  hasDurableRunStore, resolveWorkflow, validateWorkflowInput, workflowCatalog };
+  hasDurableRunStore, resolveWorkflow, validateWorkflowInput, workflowCatalog, getProject, getTask, attachWorkflowRun, settleWorkflowDraft };
 
 /** One execution contract for HTTP and Eve; callers supply authenticated identity only. */
 export function createWorkflowService(deps: typeof dependencies) {
@@ -25,6 +28,14 @@ export function createWorkflowService(deps: typeof dependencies) {
     if (!parsed.success) return response(422, { error: "INVALID_WORKFLOW_INPUT", issues: parsed.error.issues });
     if (!input.idempotencyKey || !/^[a-zA-Z0-9_-]{8,128}$/.test(input.idempotencyKey)) return response(400, { error: "IDEMPOTENCY_KEY_REQUIRED" });
     if (!deps.hasDurableRunStore()) return response(503, { error: "DATABASE_UNAVAILABLE" });
+    const context = input.projectContext;
+    if (context) {
+      try {
+        const project = await deps.getProject(input.principalId, context.projectId);
+        const task = project && await deps.getTask(input.principalId, context.projectId, context.taskId);
+        if (!project || !task) return response(404, { error: "ENGINEERING_CONTEXT_NOT_FOUND" });
+      } catch { return response(503, { error: "DATABASE_UNAVAILABLE" }); }
+    }
     const auditId = deps.randomUUID();
     let claimed;
     try {
@@ -34,8 +45,16 @@ export function createWorkflowService(deps: typeof dependencies) {
       const conflict = error instanceof Error && error.message === "IDEMPOTENCY_CONFLICT";
       return response(conflict ? 409 : 503, { error: conflict ? "IDEMPOTENCY_CONFLICT" : "DATABASE_UNAVAILABLE" });
     }
+    if (context) {
+      try { await deps.attachWorkflowRun(input.principalId, context.projectId, context.taskId, claimed.run.id); }
+      catch { return response(503, { success: false, error: "DRAFT_ASSOCIATION_UNCONFIRMED", auditId: claimed.run.id, runId: claimed.run.id, status: "persistence-unconfirmed" }); }
+    }
     if (!claimed.created) {
       const run = claimed.run;
+      if (context && run.status !== "running") {
+        try { await deps.settleWorkflowDraft(input.principalId, context.projectId, context.taskId, run.id); }
+        catch { return response(503, { success: false, error: "DRAFT_ASSOCIATION_UNCONFIRMED", auditId: run.id, runId: run.id, status: "persistence-unconfirmed" }); }
+      }
       return response(run.status === "running" ? 202 : run.status === "failed" ? 500 : 200,
         { success: run.status === "succeeded", status: run.status, workflowId: run.workflowId,
           auditId: run.id, runId: run.id, durationMs: run.durationMs, result: run.outputData,
@@ -64,6 +83,10 @@ export function createWorkflowService(deps: typeof dependencies) {
     } catch {
       return response(503, { success: false, error: "DATABASE_UNAVAILABLE", auditId, runId: auditId, status: "persistence-unconfirmed" });
     }
+    if (context) {
+      try { await deps.settleWorkflowDraft(input.principalId, context.projectId, context.taskId, auditId); }
+      catch { return response(503, { success: false, error: "DRAFT_ASSOCIATION_UNCONFIRMED", auditId, runId: auditId, status: "persistence-unconfirmed" }); }
+    }
     return response(!storageReady ? 503 : failed ? 500 : 200,
       { success: !failed, status: failed ? "failed" : "succeeded", workflowId: workflow.id,
         auditId, runId: auditId, durationMs, result,
@@ -72,14 +95,16 @@ export function createWorkflowService(deps: typeof dependencies) {
 }
 export const executeWorkflow = createWorkflowService(dependencies);
 
-type TrustedToolContext = {
-  callId: string;
-  session: { id: string; auth?: { current?: { principalId?: string } | null } };
-};
-export async function executeAgentWorkflow(workflowId: string, inputData: unknown, ctx: TrustedToolContext) {
+export async function executeAgentWorkflow(workflowId: string, inputData: unknown, ctx: ProjectRuntimeContext & { callId: string }) {
+  if (!ctx.session.auth.current?.principalId || ctx.session.auth.current.principalType === "runtime") throw new Error("UNAUTHORIZED");
+  if (!ctx.callId) throw new Error("CALL_ID_REQUIRED");
+  let binding: Awaited<ReturnType<typeof resolveEngineeringBinding>>;
+  try { binding = await resolveEngineeringBinding(ctx); }
+  catch { throw new Error("DRAFT_CONTEXT_UNAVAILABLE"); }
   // An interrupted Eve tool step may replay; the trusted call ID remains stable.
   const idempotencyKey = `eve_${createHash("sha256").update(`${ctx.session.id}:${ctx.callId}`).digest("hex")}`;
-  const response = await executeWorkflow({ workflowId, inputData, principalId: ctx.session.auth?.current?.principalId, idempotencyKey });
+  const response = await executeWorkflow({ workflowId, inputData, principalId: ctx.session.auth.current.principalId, idempotencyKey,
+    ...(binding ? { projectContext: { projectId: binding.project.id, taskId: binding.task.id } } : {}) });
   if (response.httpStatus >= 400) {
     throw new Error(String(response.body.error ?? "WORKFLOW_EXECUTION_FAILED"));
   }

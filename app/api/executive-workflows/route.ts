@@ -87,8 +87,17 @@ export async function POST(request: Request) {
     );
   }
 
+  const suppliedContext = (body as Record<string, unknown>).projectContext;
+  let projectContext: { projectId: string; taskId: string } | undefined;
+  if (suppliedContext !== undefined) {
+    if (!suppliedContext || typeof suppliedContext !== "object" || Array.isArray(suppliedContext)) return NextResponse.json({ error: "INVALID_PROJECT_CONTEXT" }, { status: 400 });
+    const { projectId, taskId } = suppliedContext as Record<string, unknown>;
+    if (typeof projectId !== "string" || typeof taskId !== "string" || !/^[0-9a-f-]{36}$/i.test(projectId) || !/^[0-9a-f-]{36}$/i.test(taskId)) return NextResponse.json({ error: "INVALID_PROJECT_CONTEXT" }, { status: 400 });
+    projectContext = { projectId, taskId };
+  }
   const result = await executeWorkflow({
     principalId,
+    projectContext,
     workflowId: requestResult.data.workflowId,
     inputData: requestResult.data.inputData,
     idempotencyKey: requestResult.data.idempotencyKey ?? request.headers.get("idempotency-key"),

@@ -3,11 +3,15 @@ import { test } from 'node:test';
 import { readFile } from 'node:fs/promises';
 import ts from 'typescript';
 const source = await readFile(new URL('../lib/platform/workflow-service.ts', import.meta.url), 'utf8');
-const js = ts.transpileModule(source.replace(/^import [\s\S]*? from "[^"]+";/gm, '').replace(/const dependencies = [\s\S]*?workflowCatalog };/, 'const dependencies = {};'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const js = ts.transpileModule(source.replace(/^import [\s\S]*? from "[^"]+";/gm, '').replace(/const dependencies = [\s\S]*?settleWorkflowDraft };/, 'const dependencies = {};'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
 const { createWorkflowService } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 function fixture(outcome = { status: 'success', result: { report: 'draft' } }) {
-  const records = new Map(); let executions = 0; let completionFails = false; let initializationFails = false;
+  const records = new Map(); let executions = 0; let completionFails = false; let initializationFails = false; let associationFails = false; let settlementFails = false; const associations = [];
   const deps = {
+    settleWorkflowDraft: async () => { if (settlementFails) throw Error('active lease or store outage'); },
+    getProject: async (owner, id) => owner === 'owner' && id === 'project' ? { id } : null,
+    getTask: async (owner, project, id) => owner === 'owner' && project === 'project' && id === 'task' ? { id } : null,
+    attachWorkflowRun: async (owner, projectId, taskId, runId) => { if (associationFails) throw Error('foreign row'); associations.push({ owner, projectId, taskId, runId }); },
     hasDurableRunStore: () => true,
     resolveWorkflow: id => id === 'feature-delivery' ? { id, key: 'featureDeliveryWorkflow' } : undefined,
     validateWorkflowInput: (_id, input) => input?.featureTitle ? { success: true, data: input } : { success: false, error: { issues: ['missing title'] } },
@@ -18,7 +22,7 @@ function fixture(outcome = { status: 'success', result: { report: 'draft' } }) {
     completeWorkflowRun: async input => { if (completionFails) throw Error('secret DB URL'); Object.assign([...records.values()][0], { status: input.status, outputData: input.outputData, durationMs: input.durationMs, errorMessage: input.errorMessage }); },
     mastra: { getWorkflow: () => ({ createRun: async () => ({ start: async () => { executions++; return outcome; } }) }) },
   };
-  return { service: createWorkflowService(deps), records, executions: () => executions, failCompletion: () => { completionFails = true; }, failInitialization: () => { initializationFails = true; } };
+  return { service: createWorkflowService(deps), records, associations, failSettlement: () => { settlementFails = true; }, failAssociation: () => { associationFails = true; }, executions: () => executions, failCompletion: () => { completionFails = true; }, failInitialization: () => { initializationFails = true; } };
 }
 const input = { principalId: 'owner', workflowId: 'feature-delivery', inputData: { featureTitle: 'Add tests' }, idempotencyKey: 'request-key' };
 test('success persists a needs_review draft and replay performs no work', async () => {
@@ -47,4 +51,21 @@ test('nonserializable output fails closed before persistence', async () => {
 test('concurrent requests share one durable claim and one execution', async () => {
   const f = fixture(); const results = await Promise.all([f.service(input), f.service(input)]);
   assert.equal(f.executions(), 1); assert.equal(f.records.size, 1); assert.ok(results.some(result => result.httpStatus === 202));
+});
+test('owned project draft links durable run before generation', async () => {
+  const f = fixture(); const result = await f.service({ ...input, projectContext: { projectId: 'project', taskId: 'task' } });
+  assert.equal(result.body.success, true); assert.deepEqual(f.associations, [{ owner: 'owner', projectId: 'project', taskId: 'task', runId: 'run-id' }]);
+});
+for (const context of [{ projectId: 'foreign', taskId: 'task' }, { projectId: 'project', taskId: 'wrong-project-task' }]) test('foreign project or task never claims or generates a draft', async () => {
+  const f = fixture(); const result = await f.service({ ...input, projectContext: context });
+  assert.equal(result.httpStatus, 404); assert.equal(f.executions(), 0); assert.equal(f.records.size, 0);
+});
+test('association failure remains unconfirmed and never generates a draft', async () => {
+  const f = fixture(); f.failAssociation(); const result = await f.service({ ...input, projectContext: { projectId: 'project', taskId: 'task' } });
+  assert.equal(result.body.status, 'persistence-unconfirmed'); assert.equal(f.executions(), 0); assert.equal(result.body.success, false);
+});
+
+test('task settlement outage cannot publish confirmed draft success', async () => {
+  const f = fixture(); f.failSettlement(); const result = await f.service({ ...input, projectContext: { projectId: 'project', taskId: 'task' } });
+  assert.equal(result.body.success, false); assert.equal(result.body.lifecycle, undefined); assert.equal(result.body.status, 'persistence-unconfirmed'); assert.equal([...f.records.values()][0].status, 'succeeded');
 });

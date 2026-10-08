@@ -89,8 +89,15 @@ const imports = {
   "next/server": { NextResponse: Response },
   "@/lib/visitor-identity": { visitorIdFromRequest: () => "owner" },
   "@/lib/mastra": { initializeWorkflowStorage: async () => {}, mastra: { getWorkflow: () => ({ createRun: async () => ({ start: async () => ({ status: "failed", error: new Error("provider failure") }) }) }) } },
-  "@/lib/platform/run-repository": { hasDurableRunStore: () => true, createWorkflowRun: async () => ({ created: true }), completeWorkflowRun: async (value) => { if (completionFails) throw new Error("DB offline"); globalThis.lastCompletion = value; }, listWorkflowRuns: async () => [], getWorkflowRun: async () => null },
+  "@/lib/platform/run-repository": { hasDurableRunStore: () => true, createWorkflowRun: async () => ({ created: true, run: { id: "abcdefab-1234-4567-abcd-abcdefabcdef" } }), completeWorkflowRun: async (value) => { if (completionFails) throw new Error("DB offline"); globalThis.lastCompletion = value; }, listWorkflowRuns: async () => [], getWorkflowRun: async () => null },
   "@/lib/platform/workflows": { workflowRequestSchema: { safeParse: (data) => ({ success: true, data }) }, validateWorkflowInput: (_id, data) => ({ success: true, data }), resolveWorkflow: () => ({ id: "feature-delivery", key: "featureDeliveryWorkflow" }), workflowCatalog: [] },
+};
+imports["@/agent/lib/project-context"] = { resolveEngineeringBinding: async () => null };
+imports["@/lib/engineering/repository"] = {
+  getProject: async (owner, id) => owner === "owner" && id === "11111111-1111-4111-8111-111111111111" ? { id } : null,
+  getTask: async (owner, p, id) => owner === "owner" && p === "11111111-1111-4111-8111-111111111111" && id === "22222222-2222-4222-8222-222222222222" ? { id } : null,
+  attachWorkflowRun: async (...args) => { globalThis.workflowAttachment = args; },
+  settleWorkflowDraft: async () => {},
 };
 imports["./run-repository"] = imports["@/lib/platform/run-repository"];
 imports["./workflows"] = imports["@/lib/platform/workflows"];
@@ -183,4 +190,24 @@ test("Eve failure is a failed action and uses trusted principal/call replay key"
   await assert.rejects(imports["@/lib/platform/workflow-service"].executeAgentWorkflow("feature-delivery", {}, ctx), /WORKFLOW_EXECUTION_FAILED/);
   assert.equal(globalThis.lastCompletion.userId, "owner");
   await assert.rejects(imports["@/lib/platform/workflow-service"].executeAgentWorkflow("feature-delivery", { owner: "forged" }, { ...ctx, session: { id: "trusted-session", auth: { current: null } } }), /UNAUTHORIZED/);
+});
+
+test("HTTP context rejects another project and a task from another project", async () => {
+  for (const projectContext of [
+    { projectId: "33333333-3333-4333-8333-333333333333", taskId: "22222222-2222-4222-8222-222222222222" },
+    { projectId: "11111111-1111-4111-8111-111111111111", taskId: "33333333-3333-4333-8333-333333333333" },
+  ]) {
+    const response = await route.POST(new Request("https://example.com/api/executive-workflows", { method: "POST", body: JSON.stringify({ workflowId: "feature-delivery", inputData: {}, idempotencyKey: "http-context-key", projectContext }) }));
+    assert.equal(response.status, 404); assert.equal((await response.json()).error, "ENGINEERING_CONTEXT_NOT_FOUND");
+  }
+});
+test("agent project context originates in trusted binding, not input fields", async () => {
+  completionFails = false;
+  imports["@/lib/mastra"].mastra.getWorkflow = () => ({ createRun: async () => ({ start: async () => ({ status: "success", result: "draft" }) }) });
+  // Import a fresh module so its binding function captures this resolver.
+  imports["@/agent/lib/project-context"].resolveEngineeringBinding = async () => ({ project: { id: "11111111-1111-4111-8111-111111111111" }, task: { id: "22222222-2222-4222-8222-222222222222" } });
+  const bound = await import(`data:text/javascript;base64,${Buffer.from(serviceJs + "\n// bound fixture").toString("base64")}`);
+  const result = await bound.executeAgentWorkflow("feature-delivery", { projectId: "forged-project", taskId: "forged-task" }, { callId: "trusted-call", session: { id: "trusted-session", auth: { current: { principalId: "owner" } } } });
+  assert.equal(result.lifecycle, "needs_review");
+  assert.deepEqual(globalThis.workflowAttachment, ["owner", "11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222", "abcdefab-1234-4567-abcd-abcdefabcdef"]);
 });
