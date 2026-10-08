@@ -28,6 +28,7 @@ Deployment: dpl_Akc1ZYd874TNof7iYuqyP3VoWTSo (Vercel Ready)
 - Signed browser identity scopes records; clearing its cookies loses access. Cross-device accounts remain future work.
 - Synthetic verification records remain isolated under test visitor identities. Existing user records were not deleted.
 - One local response timed out after successful server persistence; idempotent replay recovered the result. Subsequent browser/SDK checks succeeded.
+- Production logs included an AI SDK warning during an Eve turn; observed turns and persistence checks succeeded. Build also reports dependency bundler warnings.
 
 ## Certificate provenance
 Official source: https://github.com/supabase/supabase/blob/master/apps/studio/hooks/custom-content/custom-content.json
