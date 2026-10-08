@@ -31,6 +31,10 @@ The existing analyst remains available for deep analysis, while deterministic en
 
 ## Data ownership
 
+- The public workspace requires no account or application sign-in. A signed HttpOnly cookie automatically assigns each browser a visitor principal.
+- Settings, memory and workflow history use that visitor principal. Clearing browser cookies starts a new workspace; previous account data is not reassigned to visitors.
+- Creating an Eve session issues a signed cookie scoped to that session's route. Streams, follow-ups, controls and subagent streams require the original browser's visitor identity and session grant.
+- Visitor cookies and grants last up to one year and are Secure in production. `BETTER_AUTH_SECRET` signs them; it is not an application login requirement.
 - `agent_user_settings`: server-owned user prompt preferences.
 - `agent_workflow_runs`: server-owned workflow audit trail.
 - Private Blob memory: per-principal durable facts and preferences.

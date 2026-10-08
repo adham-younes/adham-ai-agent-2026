@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
-import { SignIn } from "./web-chat-auth";
 
 export type WorkflowPipelineType =
   | "feature-delivery"
@@ -77,13 +76,11 @@ const WORKFLOWS = {
 } as const;
 
 export function ExecutiveWorkflowsModal({
-  authenticated = true,
   initialPipeline,
   isOpen,
   onClose,
   onSendToChat,
 }: {
-  readonly authenticated?: boolean;
   readonly initialPipeline: WorkflowPipelineType;
   readonly isOpen: boolean;
   readonly onClose: () => void;
@@ -140,8 +137,8 @@ export function ExecutiveWorkflowsModal({
 
           <div className="mt-5 flex items-center justify-between gap-3">
             <p className="text-[11px] text-zinc-600">The coordinator selects the appropriate agents and tools.</p>
-            {!authenticated ? <SignIn /> : <Button
-              className="rounded-xl bg-zinc-100 px-5 text-zinc-950 hover:bg-white"
+            <Button
+              className="rounded-xl bg-primary px-5 text-primary-foreground hover:bg-primary/90"
               disabled={!details.trim()}
               onClick={() => {
                 onSendToChat(prompt);
@@ -150,7 +147,7 @@ export function ExecutiveWorkflowsModal({
               }}
             >
               Start task
-            </Button>}
+            </Button>
           </div>
         </div>
       </DialogContent>

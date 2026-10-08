@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 
-import { SignIn } from "./web-chat-auth";
 
 interface Settings {
   readonly systemPrompt: string;
@@ -22,9 +21,7 @@ interface Settings {
 export function AgentSettingsDialog({
   open,
   onOpenChange,
-  authenticated = true,
 }: {
-  readonly authenticated?: boolean;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
@@ -33,7 +30,7 @@ export function AgentSettingsDialog({
   const [state, setState] = useState<"idle" | "loading" | "saving" | "saved" | "error">("idle");
 
   useEffect(() => {
-    if (!open || !authenticated) return;
+    if (!open) return;
     const controller = new AbortController();
     setState("loading");
     void fetch("/api/settings", { signal: controller.signal })
@@ -49,7 +46,7 @@ export function AgentSettingsDialog({
         setState("error");
       });
     return () => controller.abort();
-  }, [open, authenticated]);
+  }, [open]);
 
   async function save() {
     if (!settings || !draft.trim()) return;
@@ -79,11 +76,11 @@ export function AgentSettingsDialog({
           </div>
           <DialogTitle>Agent settings</DialogTitle>
           <DialogDescription className="text-zinc-500">
-            Your saved instructions apply to each request and remain private to your account.
+            Your instructions apply to each request and are saved for this browser.
           </DialogDescription>
         </DialogHeader>
 
-        {!authenticated ? <div className="py-6 text-sm text-zinc-400"><p className="mb-4">Sign in to manage your instructions and memory.</p><SignIn /></div> : state === "loading" ? (
+        {state === "loading" ? (
           <div className="flex h-48 items-center justify-center text-zinc-500">
             <Loader2Icon className="size-5 animate-spin" />
           </div>
@@ -101,12 +98,12 @@ export function AgentSettingsDialog({
               value={draft}
             />
             <div className="mt-3 flex items-center gap-3 rounded-xl bg-white/[0.025] px-3 py-3">
-              <BrainIcon className="size-4 text-red-300" />
+              <BrainIcon className="size-4 text-[#ad7bf9]" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-zinc-300">Long-term memory</p>
-                <p className="mt-0.5 text-[11px] text-zinc-600">Memory is isolated to your account.</p>
+                <p className="mt-0.5 text-[11px] text-zinc-400">Memory is scoped to this browser’s workspace.</p>
               </div>
-              <span className="size-2 rounded-full bg-red-400" />
+              <span className="size-2 rounded-full bg-[#53b559]" />
             </div>
             <div className="mt-5 flex items-center justify-between gap-3">
               <p className={state === "error" ? "text-xs text-rose-400" : "text-xs text-zinc-600"} role="status">

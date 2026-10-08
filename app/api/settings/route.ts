@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import { visitorIdFromRequest } from "@/lib/visitor-identity";
 import {
   getUserAgentSettings,
   saveUserAgentSettings,
@@ -15,9 +15,7 @@ const settingsSchema = z.object({
 });
 
 async function currentUserId(): Promise<string | null> {
-  if (process.env.NODE_ENV === "development") return "local-dev";
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user.id ?? null;
+  return visitorIdFromRequest(new Request("http://internal", { headers: await headers() })) ?? null;
 }
 
 export async function GET() {

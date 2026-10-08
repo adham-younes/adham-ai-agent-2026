@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { visitorIdFromRequest } from "@/lib/visitor-identity";
 import { mastra } from "@/lib/mastra";
 import {
   completeWorkflowRun,
@@ -22,9 +22,7 @@ export const maxDuration = 300;
 const MAX_REQUEST_BYTES = 256_000;
 
 async function getPrincipalId(): Promise<string | null> {
-  if (process.env.NODE_ENV === "development") return "local-development";
-  const session = await auth.api.getSession({ headers: await headers() });
-  return session?.user.id ?? null;
+  return visitorIdFromRequest(new Request("http://internal", { headers: await headers() })) ?? null;
 }
 
 export async function GET(request: Request) {

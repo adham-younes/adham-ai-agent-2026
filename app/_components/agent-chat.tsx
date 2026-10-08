@@ -4,7 +4,6 @@ import type { UserContent } from "ai";
 import { useEveAgent } from "eve/react";
 import {
   ActivityIcon,
-  HomeIcon,
   MessageSquareIcon,
   LayoutGridIcon,
   LinkIcon,
@@ -15,7 +14,7 @@ import {
   EyeIcon,
   PaperclipIcon,
   SendIcon,
-  TriangleIcon,
+  TerminalIcon,
   AlertCircleIcon,
   BrainIcon,
   Code2Icon,
@@ -51,7 +50,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { SignIn } from "./web-chat-auth";
+import { WorkspaceWelcome } from "./workspace-welcome";
 import { AgentMessage } from "./agent-message";
 import { AgentSettingsDialog } from "./agent-settings-dialog";
 import {
@@ -81,12 +80,8 @@ interface PlatformStatus {
 
 export function AgentChat({
   sessionId,
-  sessionless = false,
-  authenticated = true,
 }: {
   readonly sessionId?: string;
-  readonly sessionless?: boolean;
-  readonly authenticated?: boolean;
 }) {
   const [demo, setDemo] = useState(false);
   const [demoTab, setDemoTab] = useState("Changes");
@@ -137,7 +132,7 @@ export function AgentChat({
     isBusy && (agent.status === "submitted" || lastMessage?.role !== "assistant" || pendingShell);
   const turnFailure = isBusy || isResuming ? undefined : getLatestTurnFailure(agent.events);
   const errorMessage = cancellationError ?? agent.error?.message ?? turnFailure;
-  const showConversation = isResuming || sessionless || !isEmpty || errorMessage !== undefined;
+  const showConversation = isResuming || !isEmpty || errorMessage !== undefined;
   const activeSessionId = sessionId ?? agent.session?.sessionId;
 
   const openWorkflow = (workflow: WorkflowPipelineType) => {
@@ -147,7 +142,6 @@ export function AgentChat({
   };
 
   const handleSubmit = async (message: PromptInputMessage) => {
-    if (!authenticated) return;
     setDemo(false);
     const text = message.text.trim();
     if ((text.length === 0 && message.files.length === 0) || isResuming) return;
@@ -165,15 +159,14 @@ export function AgentChat({
 
   const composer = (
     <div className="composer-shell">
-      {!authenticated ? <div className="composer-auth"><span>Sign in to start a task and save your conversations.</span><SignIn /></div> : null}
       <PromptInput onSubmit={handleSubmit} multiple>
-        <ComposerAttachments disabled={!authenticated || isResuming} />
+        <ComposerAttachments disabled={isResuming} />
         <PromptInputTextarea
           aria-label="Describe your task"
           className="min-h-[48px] resize-none border-none bg-transparent px-3 py-2 text-[15px] leading-7 text-zinc-100 placeholder:text-zinc-600 focus-visible:ring-0"
-          disabled={isResuming || !authenticated}
+          disabled={isResuming}
           onChange={(event) => setHasInputText(event.currentTarget.value.trim().length > 0)}
-          placeholder="Describe the next step..."
+          placeholder="What would you like to work on?"
         />
         <div className="composer-toolbar flex items-center justify-between px-1 pb-1">
           <div className="flex items-center gap-2 text-[11px] text-zinc-600">
@@ -183,7 +176,7 @@ export function AgentChat({
           <ComposerAction
             hasInputText={hasInputText}
             isBusy={isBusy}
-            isResuming={isResuming || !authenticated}
+            isResuming={isResuming}
             onCancel={() => {
               setCancellationError(undefined);
               void agent.cancel().catch((error: unknown) => setCancellationError(toErrorMessage(error)));
@@ -196,15 +189,15 @@ export function AgentChat({
 
   return (
     <div className="app-shell">
-      <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[280px]" : "w-0 border-0")}>
+      <aside className={cn("sidebar hidden lg:flex", sidebarOpen ? "w-[256px]" : "w-0 border-0")}>
         <Sidebar onOpenSettings={() => setSettingsOpen(true)} onOpenWorkflow={openWorkflow} platform={platform} />
       </aside>
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button aria-label="Close menu" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
+          <button aria-label="Dismiss navigation" className="absolute inset-0 bg-black/75 backdrop-blur-sm" onClick={() => setMobileOpen(false)} type="button" />
           <aside className="sidebar absolute inset-y-0 left-0 flex w-[min(86vw,320px)] shadow-2xl">
-            <Button aria-label="Close menu" className="absolute left-3 top-3 z-10" onClick={() => setMobileOpen(false)} size="icon-sm" variant="ghost"><XIcon className="size-4" /></Button>
+            <Button aria-label="Close menu" className="absolute right-3 top-3 z-10" onClick={() => setMobileOpen(false)} size="icon-sm" variant="ghost"><XIcon className="size-4" /></Button>
             <Sidebar onOpenSettings={() => { setSettingsOpen(true); setMobileOpen(false); }} onOpenWorkflow={openWorkflow} platform={platform} />
           </aside>
         </div>
@@ -218,11 +211,12 @@ export function AgentChat({
               {sidebarOpen ? <PanelRightCloseIcon className="size-4" /> : <PanelRightOpenIcon className="size-4" />}
             </Button>
             <div className="min-w-0">
-              <div className="workspace-breadcrumb"><HomeIcon className="size-5" /><span>Workspace</span><span>/</span><strong>{demo ? "Customer support API" : activeSessionId ? `Task ${activeSessionId.slice(0, 8)}` : "New task"}</strong></div>
+              <div className="workspace-breadcrumb"><span>Workspace</span><span>/</span><strong>{demo ? "Example session" : activeSessionId ? `Task ${activeSessionId.slice(0, 8)}` : "Overview"}</strong></div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <Button className="demo-button" onClick={() => setDemo((value) => !value)} size="sm" variant="outline"><PlayIcon className="size-3.5" />{demo ? "Exit demo" : "Demo session"}</Button>
+            <span className="open-access-badge"><span className="status-dot" />Open access</span>
+            <Button className="demo-button" onClick={() => setDemo((value) => !value)} size="sm" variant="outline"><PlayIcon className="size-3.5" />{demo ? "Exit example" : "View example"}</Button>
             <Button aria-label="Toggle execution panel" onClick={() => setExecutionOpen((value) => !value)} size="icon-sm" variant="ghost"><ActivityIcon className="size-4" /></Button>
             <Button aria-label="Agent settings" onClick={() => setSettingsOpen(true)} size="icon-sm" variant="ghost"><Settings2Icon className="size-4" /></Button>
             <Button className="rounded-lg border-white/10 bg-white/[0.035]" onClick={() => window.location.assign("/s")} size="sm" variant="outline"><PlusIcon className="size-3.5" /><span className="hidden sm:inline">New task</span></Button>
@@ -249,16 +243,15 @@ export function AgentChat({
             <ConversationScrollButton />
           </Conversation>
         ) : (
-          <div className="workspace-empty"><div className="agent-heading"><img src="/agent-mark.png" alt="" width={40} height={36} /><strong>ADHAM AGENT</strong><span>Coordinator</span></div><h1>What are we working on?</h1><p>Describe your task below. I’ll help you plan, build, and verify it.</p><div className="start-tasks">{WORKFLOWS.slice(0, 3).map((workflow) => <button key={workflow.id} onClick={() => authenticated ? openWorkflow(workflow.id) : document.querySelector<HTMLTextAreaElement>("textarea")?.focus()} disabled={!authenticated} type="button"><workflow.icon className="size-4" /><span>{workflow.label}</span><PlusIcon className="size-4" /></button>)}</div></div>
+          <WorkspaceWelcome composer={composer} onOpenWorkflow={openWorkflow} onPrompt={(text) => { void agent.send(text); }} />
         )}
 
-        <div className={cn("composer-wrap", "composer-fixed")}>{composer}</div>
+        {demo || showConversation ? <div className="composer-wrap composer-fixed">{composer}</div> : null}
       </main>
 
       <ExecutionPanel demo={demo} busy={isBusy} error={errorMessage} open={executionOpen} onClose={() => setExecutionOpen(false)} events={agent.events} onReview={() => { if (demo) setDemoTab("Checks"); else document.querySelector("[data-streamdown]")?.scrollIntoView({ behavior: "smooth" }); }} />
-      <AgentSettingsDialog authenticated={authenticated} onOpenChange={setSettingsOpen} open={settingsOpen} />
+      <AgentSettingsDialog onOpenChange={setSettingsOpen} open={settingsOpen} />
       <ExecutiveWorkflowsModal
-        authenticated={authenticated}
         initialPipeline={selectedWorkflow}
         isOpen={workflowOpen}
         onClose={() => setWorkflowOpen(false)}
@@ -278,12 +271,12 @@ function Sidebar({
   readonly platform?: PlatformStatus;
 }) {
   return (
-    <div className="flex h-full w-[280px] shrink-0 flex-col overflow-y-auto p-3">
+    <div className="sidebar-content flex h-full w-[256px] shrink-0 flex-col overflow-y-auto p-3">
       <div className="flex items-center gap-3 px-2 py-2">
-        <div className="brand-mark"><img src="/agent-mark.png" alt="" width={40} height={36} /></div>
-        <div><p className="text-sm font-semibold tracking-[0.08em] text-zinc-100" dir="ltr">ADHAM AGENT</p><p className="text-[10px] text-zinc-500">Workspace</p></div>
+        <div className="brand-mark"><TerminalIcon className="size-5" /></div>
+        <div><p className="brand-name" dir="ltr">adham<span> / agent</span></p><p className="brand-subtitle">A little space. A lot of possibility.</p></div>
       </div>
-      <Button className="new-task mt-6 w-full justify-start rounded-lg" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />New task</Button>
+      <Button className="new-task mt-7 w-full justify-start rounded-lg" onClick={() => window.location.assign("/s")} variant="outline"><PlusIcon className="size-4" />New task<span className="new-task-shortcut">+</span></Button>
 
       <nav className="primary-nav mt-5 space-y-1">
         <button className="nav-item nav-active" onClick={() => window.location.assign("/")} type="button"><MessageSquareIcon className="size-5" />Conversations</button>
@@ -292,7 +285,7 @@ function Sidebar({
         <button className="nav-item" onClick={onOpenSettings} type="button"><DatabaseIcon className="size-5" />Memory</button>
       </nav>
 
-      <p className="section-label mt-6">Task workflows</p>
+      <p className="section-label mt-6">WORKFLOWS<span className="workflow-count">07</span></p>
       <nav className="mt-2 space-y-1">
         {WORKFLOWS.map((workflow) => {
           const Icon = workflow.icon;
@@ -305,7 +298,7 @@ function Sidebar({
       </nav>
 
       <div className="mt-auto pt-5">
-        <div className="sidebar-profile"><span className="profile-avatar"><TriangleIcon className="size-5" /></span><span>Agent workspace</span></div>
+        <div className="sidebar-profile"><span className="profile-avatar"><TerminalIcon className="size-4" /></span><span><strong>Your workspace</strong><small>No account needed</small></span></div>
         <button className="settings-entry" onClick={onOpenSettings} type="button">
           <Settings2Icon className="size-4" />
           <span><strong>Settings</strong><small>Instructions and memory</small></span>
