@@ -3,6 +3,7 @@ import {
   listRuns,
   listArtifacts,
   listChecks,
+  getTaskCheckSummary,
   updateTaskPlan,
   verifyTask,
   acceptTask,
@@ -29,12 +30,13 @@ export async function GET(request: Request, c: C) {
       id = uuid(ids.id),
       t = uuid(ids.taskId);
     const task = await getTask(owner, id, t);
-    const [runs, artifacts, checks] = await Promise.all([
+    const [runs, artifacts, checks, checkSummary] = await Promise.all([
       listRuns(owner, id, t, p.limit, p.offset),
       listArtifacts(owner, id, t, p.limit, p.offset),
       listChecks(owner, id, t, p.limit, p.offset),
+      getTaskCheckSummary(owner, id, t),
     ]);
-    return json({ task, runs, artifacts, checks });
+    return json({ task, runs, artifacts, checks, checkSummary });
   } catch (e) {
     return failure(e);
   }

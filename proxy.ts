@@ -14,4 +14,4 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/", "/s/:path*", "/api/settings", "/api/executive-workflows"] };
+export const config = { matcher: ["/", "/s/:path*", "/projects/:path*", "/api/projects/:path*", "/api/settings", "/api/executive-workflows"] };

@@ -1,62 +1,100 @@
-import * as React from "react";
-import { cva, type VariantProps } from "class-variance-authority";
-import { Slot } from "radix-ui";
+import * as React from "react"
+import { Slot } from "@radix-ui/react-slot"
+import { cva, type VariantProps } from "class-variance-authority"
 
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
+import { emeraldPanelStyle } from "./_shared"
+
+/*
+ * Emerald Analytics Button — the dashboard's vivid emerald CTA.
+ * The default (hero) variant is the solid emerald fill lit from above with a
+ * soft emerald halo, exactly like the "Create New" action in the reference.
+ * Hover brightens the emerald and deepens the halo; active presses it flat into
+ * the surface. Secondary is the quiet charcoal-green panel tab.
+ */
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  [
+    "inline-flex items-center justify-center gap-2 whitespace-nowrap",
+    "text-sm font-medium leading-none",
+    "rounded-lg cursor-pointer select-none",
+    "transition-[background-color,box-shadow,transform,filter] duration-150",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "active:translate-y-px active:[box-shadow:var(--shadow-inset)]",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive:
-          "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40",
+        // Hero — the vivid emerald CTA.
+        default:
+          "bg-primary text-primary-foreground " +
+          "[box-shadow:var(--shadow-primary)] " +
+          "hover:brightness-105 hover:[box-shadow:var(--shadow-primary),0_8px_20px_-3px_color-mix(in_oklch,var(--primary)_30%,transparent)]",
+        // Primary — same emerald material as the hero default.
+        primary:
+          "bg-primary text-primary-foreground " +
+          "[box-shadow:var(--shadow-primary)] " +
+          "hover:brightness-105 hover:[box-shadow:var(--shadow-primary),0_8px_20px_-3px_color-mix(in_oklch,var(--primary)_30%,transparent)]",
+        // Secondary — quiet charcoal-green panel tab.
+        secondary:
+          "bg-secondary text-secondary-foreground " +
+          "[box-shadow:var(--shadow-button)] " +
+          "hover:bg-accent hover:text-foreground hover:[box-shadow:var(--shadow-button-hover)]",
         outline:
-          "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+          "bg-transparent text-foreground border border-border " +
+          "hover:bg-accent hover:border-ring/30",
+        ghost:
+          "bg-transparent text-muted-foreground " +
+          "hover:bg-accent hover:text-accent-foreground",
+        destructive:
+          "bg-destructive text-destructive-foreground " +
+          "[box-shadow:var(--shadow-button)] " +
+          "hover:brightness-105 hover:[box-shadow:var(--shadow-button-hover)]",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-md px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10",
+        sm: "h-8 px-3 text-xs",
+        default: "h-9 px-4",
+        lg: "h-10 px-6",
+        icon: "h-9 w-9",
+        "icon-sm": "h-8 w-8",
+        "icon-xs": "h-6 w-6",
+        "icon-lg": "h-10 w-10",
       },
     },
     defaultVariants: {
       variant: "default",
       size: "default",
     },
-  },
-);
+  }
+)
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean;
-  }) {
-  const Comp = asChild ? Slot.Root : "button";
-
-  return (
-    <Comp
-      data-slot="button"
-      data-variant={variant}
-      data-size={size}
-      className={cn(buttonVariants({ variant, size, className }))}
-      {...props}
-    />
-  );
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+    VariantProps<typeof buttonVariants> {
+  asChild?: boolean
 }
 
-export { Button, buttonVariants };
+// Filled variants carry a solid background, so they get the faint top-light
+// sheen (laid over their token colour) to match the cards. Transparent variants
+// (outline/ghost/link) skip it, otherwise the sheen would float on nothing.
+const SHEENED_VARIANTS = new Set([undefined, "default", "primary", "secondary", "destructive"])
+
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, asChild = false, style, ...props }, ref) => {
+    const Comp = asChild ? Slot : "button"
+    const sheened = SHEENED_VARIANTS.has(variant ?? undefined)
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        style={sheened ? { ...emeraldPanelStyle, ...style } : style}
+        {...props}
+      />
+    )
+  }
+)
+Button.displayName = "Button"
+
+export { Button, buttonVariants }

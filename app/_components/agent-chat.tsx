@@ -349,7 +349,7 @@ function getLatestTurnFailure(events: ReturnType<typeof useEveAgent>["events"]):
 }
 
 function ExecutionPanel({ busy, error, open, onClose, events, onReview }: { readonly busy: boolean; readonly error?: string; readonly open: boolean; readonly onClose: () => void; readonly events: ReturnType<typeof useEveAgent>["events"]; readonly onReview: () => void }) {
-  const activity = events.filter(event => /tool|turn\.(completed|failed|started)/.test(event.type)).slice(-5).reverse();
+  const activity = events.filter(event => /tool|action\.|turn\.(completed|failed|started)/.test(event.type)).slice(-5).reverse();
   return <aside className={cn("execution-panel", open && "execution-panel-open")} aria-label="Execution">
     <div className="execution-heading"><div><span className="eyebrow">LIVE RECORD</span><h2>Activity</h2><p>Current conversation</p></div><Button aria-label="Close execution panel" size="icon-sm" variant="ghost" onClick={onClose}><XIcon className="size-4" /></Button></div>
     <div className="execution-status-card"><span className={cn("status-dot", busy && "status-dot-busy")} /><div><strong>{error ? "Needs attention" : busy ? "Agent working" : activity.length ? "Turn settled" : "Ready when you are"}</strong><p>{error ? "Review the error in the conversation." : busy ? "Live tool activity appears below." : "The record reflects actual agent events."}</p></div></div>
@@ -359,9 +359,9 @@ function ExecutionPanel({ busy, error, open, onClose, events, onReview }: { read
 }
 
 function activityLabel(type: string): string {
-  if (type === "turn.completed") return "Task completed";
-  if (type === "turn.failed") return "Task interrupted";
-  if (type === "turn.started") return "Task started";
+  if (type === "turn.completed") return "Reply finished";
+  if (type === "turn.failed") return "Reply interrupted";
+  if (type === "turn.started") return "Reply started";
   if (type.includes("completed") || type.includes("result")) return "Tool finished";
   if (type.includes("failed")) return "Tool needs attention";
   return "Using a tool";

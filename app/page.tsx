@@ -1,5 +1,5 @@
-import { PublicAgentChat } from "./_components/public-agent-chat";
+import { EngineeringWorkspace } from "./_components/engineering-workspace";
 
 export default function Page() {
-  return <PublicAgentChat />;
+  return <EngineeringWorkspace />;
 }

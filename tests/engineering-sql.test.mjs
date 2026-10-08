@@ -10,7 +10,7 @@ test(
     const { PGlite } = await import(process.env.PGLITE_MODULE);
     const db = new PGlite();
     await db.exec(
-      "create role anon; create role authenticated; create role agent_runtime; create table public.agent_workflow_runs (id uuid primary key,user_id text not null,status text not null default 'running'); grant select,insert,update on public.agent_workflow_runs to agent_runtime;",
+      "create role anon; create role authenticated; create role agent_runtime; create table public.agent_workflow_runs (id text primary key,user_id text not null,status text not null default 'running'); grant select,insert,update on public.agent_workflow_runs to agent_runtime;",
     );
     await db.exec(
       await readFile(
@@ -114,6 +114,46 @@ test(
       logs: "passed",
     });
     assert.equal((await r.verifyTask("owner", p.id, t.id)).status, "verified");
+    const summaryProject = await r.createProject("owner", { name: "Check summary", goal: "Show all current configured checks" });
+    const requiredChecks = Array.from({ length: 7 }, (_, i) => ({ id: `check-${i}`, command: `echo ${i}` }));
+    const summaryTask = await r.createTask("owner", summaryProject.id, {
+      title: "Seven checks", kind: "implementation", acceptanceCriteria: ["All configured checks are visible"], requiredChecks, requiredArtifacts: [],
+    });
+    await r.bindProjectSession("owner", summaryProject.id, "summary-session");
+    await r.setActiveTask("owner", summaryProject.id, summaryTask.id);
+    await r.updateTaskPlan("owner", summaryProject.id, summaryTask.id, {});
+    const summaryRun = await r.claimRun("owner", { projectId: summaryProject.id, taskId: summaryTask.id, sessionId: "summary-session", sandboxId: "summary-sandbox", capability: "check", idempotencyKey: "summary-first" });
+    for (const check of requiredChecks) await r.recordCheck("owner", {
+      projectId: summaryProject.id, taskId: summaryTask.id, runId: summaryRun.run.id,
+      checkId: check.id, command: check.command, workspaceVersion: 0, status: "passed", exitCode: 0, logs: "passed",
+    });
+    const pendingSummary = await r.getTaskCheckSummary("owner", summaryProject.id, summaryTask.id);
+    assert.equal(Object.keys(pendingSummary).length, 7);
+    assert.ok(Object.values(pendingSummary).every((check) => check.status === "running"), "Unfinished run cannot certify passed checks");
+    await r.completeRun("owner", summaryProject.id, summaryRun.run.id, "succeeded");
+    assert.equal((await r.listChecks("owner", summaryProject.id, summaryTask.id, 5)).length, 5);
+    const summary = await r.getTaskCheckSummary("owner", summaryProject.id, summaryTask.id);
+    assert.equal(Object.keys(summary).length, 7, "Current check summary is independent of five-record history page");
+    assert.ok(Object.values(summary).every((check) => check.status === "passed"));
+    await assert.rejects(r.getTaskCheckSummary("foreign", summaryProject.id, summaryTask.id), /PROJECT_NOT_FOUND/);
+    const summaryRetry = await r.claimRun("owner", { projectId: summaryProject.id, taskId: summaryTask.id, sessionId: "summary-session", sandboxId: "summary-sandbox", capability: "check", idempotencyKey: "summary-retry" });
+    await r.recordCheck("owner", {
+      projectId: summaryProject.id, taskId: summaryTask.id, runId: summaryRetry.run.id,
+      checkId: "check-0", command: "echo 0", workspaceVersion: 0, status: "failed", exitCode: 1, logs: "latest failed",
+    });
+    await r.completeRun("owner", summaryProject.id, summaryRetry.run.id, "failed", "latest failed");
+    assert.equal((await r.getTaskCheckSummary("owner", summaryProject.id, summaryTask.id))["check-0"].status, "failed", "Latest failed result replaces earlier pass");
+    const summaryCancel = await r.claimRun("owner", { projectId: summaryProject.id, taskId: summaryTask.id, sessionId: "summary-session", sandboxId: "summary-sandbox", capability: "check", idempotencyKey: "summary-cancel" });
+    await r.recordCheck("owner", {
+      projectId: summaryProject.id, taskId: summaryTask.id, runId: summaryCancel.run.id,
+      checkId: "check-1", command: "echo 1", workspaceVersion: 0, status: "passed", exitCode: 0, logs: "before cancellation",
+    });
+    await r.completeRun("owner", summaryProject.id, summaryCancel.run.id, "cancelled");
+    assert.equal((await r.getTaskCheckSummary("owner", summaryProject.id, summaryTask.id))["check-1"].status, "cancelled");
+    const summaryMutation = await r.claimRun("owner", { projectId: summaryProject.id, taskId: summaryTask.id, sessionId: "summary-session", sandboxId: "summary-sandbox", capability: "write", idempotencyKey: "summary-mutation" });
+    await r.recordMutation("owner", summaryProject.id, summaryMutation.run.id);
+    await r.completeRun("owner", summaryProject.id, summaryMutation.run.id, "succeeded");
+    assert.deepEqual(await r.getTaskCheckSummary("owner", summaryProject.id, summaryTask.id), {}, "Earlier source revision results are excluded");
     assert.equal(
       (await r.listRuns("owner", p.id, t.id))[0].command,
       "node --test",

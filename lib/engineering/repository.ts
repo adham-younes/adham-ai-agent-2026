@@ -505,6 +505,39 @@ export const listChecks = (o: string, p: string, t: string, l = 5, s = 0) =>
   evidence<Check>(o, p, t, "checks", l, s);
 export const listRuns = (o: string, p: string, t: string, l = 5, s = 0) =>
   evidence<EngineeringRun>(o, p, t, "runs", l, s);
+export type TaskCheckSummary = Record<string, {
+  status: Check["status"] | "running";
+  workspaceVersion: number;
+  exitCode: number | null;
+  createdAt: string;
+  logs: string;
+  command: string;
+}>;
+export async function getTaskCheckSummary(owner: string, p: string, id: string): Promise<TaskCheckSummary> {
+  return owned(owner, async (db) => {
+    const proj = await project(db, owner, p);
+    const t = await task(db, owner, p, id);
+    // One result per configured command, independent of the history page.
+    const result = await db.query(
+      `select coalesce(jsonb_object_agg(required.id, jsonb_build_object(
+        'status', case when r.status='succeeded' then c.status else r.status end,
+        'workspaceVersion', c.workspace_version, 'exitCode', c.exit_code,
+        'createdAt', c.created_at, 'logs', c.logs, 'command', c.command
+      )), '{}'::jsonb) summary
+      from jsonb_to_recordset($4::jsonb) required(id text, command text)
+      join lateral (
+        select * from public.engineering_checks
+        where owner_id=$1 and project_id=$2 and task_id=$3
+          and workspace_version=$5 and check_id=required.id and command=required.command
+        order by created_at desc,id desc limit 1
+      ) c on true
+      join public.engineering_runs r on r.owner_id=c.owner_id
+        and r.project_id=c.project_id and r.task_id=c.task_id and r.id=c.run_id`,
+      [owner, p, id, JSON.stringify(t.required_checks.slice(0, 20)), proj.workspace_version],
+    );
+    return result.rows[0].summary as TaskCheckSummary;
+  });
+}
 export async function verifyTask(owner: string, p: string, id: string) {
   return owned(owner, async (db) => {
     const proj = await project(db, owner, p, true);
