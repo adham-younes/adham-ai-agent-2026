@@ -3,9 +3,9 @@
 - User approved Project → Tasks → Execution → Files/Artifacts → Checks, with task-scoped chat.
 - User selected Evergreen while preserving the current black/off-white/green identity.
 - Current production remains https://adham-ai-agent-2026.vercel.app (previous implementation).
-- New branch: codex/engineering-workspace; product code has not changed in this phase.
+- Implementation branch: codex/engineering-workspace; backend implementation is in progress.
 - Written spec: docs/superpowers/specs/2026-10-09-engineering-workspace-design.md.
-- Written-spec review is pending; next stage is the implementation plan.
+- Written spec approved by user (نفذ); plan: docs/superpowers/plans/2026-10-09-engineering-workspace.md.
 - Audit found seven agent Mastra tools bypass the durable HTTP execution service.
 - Those tools report DRAFT_READY without checking returned workflow status.
 - UI labels turn completion as task completion and does not expose a project/task/check ledger.
@@ -13,4 +13,9 @@
 - Better Design copy audit: two serious findings; selected Evergreen kit uses Radix/Phosphor duotone.
 - Reuse MagicPath project 458965191527391232 after execution prerequisites are approved.
 - Preserve existing Eve runtime/model, Supabase memory/settings, session grants and legacy history.
-- No new migrations, package installations, external design builds or deployment have occurred.
+- Backend implementation committed through 1f9d756: owner-scoped projects/tasks, trusted session binding, exclusive execution, actual files/checks/import/archive/recovery and shared draft execution.
+- 88 tests pass with isolated PostgreSQL enabled, including migrations 0008/0009, FORCE RLS, evidence gates, stable replay and recovery fencing; targeted independent reviews passed.
+- Eve build passes. Full app typecheck currently fails because installed Evergreen primitives need adaptation to existing AI elements; app build/live UI journey remain unverified.
+- Migrations 0008/0009 have NOT been applied to live Supabase. No new deployment or push has occurred.
+- Evergreen registry installed components but attempted lucide-react 1.16.0 → 0.518.0; UI continuation awaits the user's dependency-conflict decision.
+- MagicPath engineering component session started; source/build not yet submitted. New workstation is not deployed or verified.
