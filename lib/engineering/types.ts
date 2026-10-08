@@ -38,6 +38,7 @@ export interface Task {
   requiredArtifacts: string[];
   status: TaskStatus;
   currentRunId: string | null;
+  latestDraftRunId?: string | null;
   version: number;
   createdAt: string;
 }
@@ -47,6 +48,8 @@ export interface EngineeringRun {
   taskId: string;
   capability: string;
   idempotencyKey: string;
+  parentCallId?: string | null;
+  rootSessionId?: string | null;
   status: "running" | "succeeded" | "failed" | "cancelled";
   workspaceVersion: number;
   error: string | null;

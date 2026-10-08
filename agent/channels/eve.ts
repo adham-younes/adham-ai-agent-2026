@@ -1,3 +1,4 @@
+import { getProject, getTask, bindProjectSession, setActiveTask } from "@/lib/engineering/repository";
 import { eveChannel } from "eve/channels/eve";
 import { ForbiddenError, type AuthFn } from "eve/channels/auth";
 import {
@@ -10,12 +11,16 @@ const visitorSession: AuthFn<Request> = async (request) => {
   if (isCrossOriginMutation(request)) throw new ForbiddenError({ message: "Request origin is not allowed." });
   const visitorId = visitorIdFromRequest(request);
   if (!visitorId) return null;
-  const sessionId = new URL(request.url).pathname.match(/\/session\/([^/]+)/)?.[1];
+  const url = new URL(request.url);
+  const projectId = url.searchParams.get("projectId");
+  const taskId = url.searchParams.get("taskId");
+  const engineering = projectId && taskId ? { project: await getProject(visitorId, projectId), task: await getTask(visitorId, projectId, taskId) } : null;
+  const sessionId = url.pathname.match(/\/session\/([^/]+)/)?.[1];
   if (sessionId && !verifySessionGrant(requestCookie(request, SESSION_COOKIE), visitorId, decodeURIComponent(sessionId))) {
-    throw new ForbiddenError({ message: "This conversation belongs to a different browser. Start a new task." });
+    if (!engineering || engineering.project.sessionId !== decodeURIComponent(sessionId)) throw new ForbiddenError({ message: "This conversation belongs to a different browser. Start a new task." });
   }
   return {
-    attributes: { name: "Visitor" },
+    attributes: { name: "Visitor", ...(engineering ? { engineeringProjectId: engineering.project.id, engineeringTaskId: engineering.task.id } : {}) },
     authenticator: "automatic-visitor",
     principalId: visitorId,
     principalType: "user",
@@ -44,10 +49,21 @@ export default {
         if (token !== existing) responseHeaders.append("Set-Cookie", cookieHeader(VISITOR_COOKIE, token));
         if (route.path === "/eve/v1/session" && response.ok) {
           const body = await response.clone().json() as { sessionId?: string };
-          if (body.sessionId) responseHeaders.append("Set-Cookie", cookieHeader(
-            SESSION_COOKIE, createSessionGrant(visitorIdFromToken(token)!, body.sessionId),
-            `/eve/v1/session/${encodeURIComponent(body.sessionId)}`,
-          ));
+          if (body.sessionId) {
+            const url = new URL(request.url);
+            const projectId = url.searchParams.get("projectId");
+            const taskId = url.searchParams.get("taskId");
+            if(projectId && taskId) {
+              const owner = visitorIdFromToken(token)!;
+              await getTask(owner, projectId, taskId);
+              const project = await bindProjectSession(owner, projectId, body.sessionId);
+              if(project.activeTaskId !== taskId) await setActiveTask(owner, projectId, taskId);
+            }
+            responseHeaders.append("Set-Cookie", cookieHeader(
+              SESSION_COOKIE, createSessionGrant(visitorIdFromToken(token)!, body.sessionId),
+              `/eve/v1/session/${encodeURIComponent(body.sessionId)}`,
+            ));
+          }
         }
         return new Response(response.body, { status: response.status, statusText: response.statusText, headers: responseHeaders });
       },

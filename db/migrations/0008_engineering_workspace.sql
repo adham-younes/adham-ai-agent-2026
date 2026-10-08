@@ -59,6 +59,8 @@ create table public.engineering_runs (
     status in ('running', 'succeeded', 'failed', 'cancelled')
   ),
   workspace_version integer not null,
+  parent_call_id text,
+  root_session_id text,
   error text,
   created_at timestamptz not null default now(),
   completed_at timestamptz,

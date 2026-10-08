@@ -47,7 +47,17 @@ export function createWorkflowService(deps: typeof dependencies) {
     }
     if (context) {
       try { await deps.attachWorkflowRun(input.principalId, context.projectId, context.taskId, claimed.run.id); }
-      catch { return response(503, { success: false, error: "DRAFT_ASSOCIATION_UNCONFIRMED", auditId: claimed.run.id, runId: claimed.run.id, status: "persistence-unconfirmed" }); }
+      catch {
+        if (claimed.created) {
+          // No generator ran: close this claim when possible so a same-key retry
+          // reads failure instead of waiting on work that never started.
+          try { await deps.completeWorkflowRun({ id: claimed.run.id, userId: input.principalId,
+            status: "failed", durationMs: Math.round(performance.now() - startedAt),
+            outputData: { status: "failed", error: "DRAFT_ASSOCIATION_FAILED" },
+            errorMessage: "The draft could not be associated with its task. Retry with a new request after checking storage." }); } catch { /* visibly unconfirmed; durable reconciliation remains available */ }
+        }
+        return response(503, { success: false, error: "DRAFT_ASSOCIATION_UNCONFIRMED", auditId: claimed.run.id, runId: claimed.run.id, status: "persistence-unconfirmed" });
+      }
     }
     if (!claimed.created) {
       const run = claimed.run;

@@ -69,3 +69,8 @@ test('task settlement outage cannot publish confirmed draft success', async () =
   const f = fixture(); f.failSettlement(); const result = await f.service({ ...input, projectContext: { projectId: 'project', taskId: 'task' } });
   assert.equal(result.body.success, false); assert.equal(result.body.lifecycle, undefined); assert.equal(result.body.status, 'persistence-unconfirmed'); assert.equal([...f.records.values()][0].status, 'succeeded');
 });
+test('attachment outage persists failure so same-key retry never reports running', async () => {
+  const f = fixture(); f.failAssociation(); await f.service({ ...input, projectContext: { projectId: 'project', taskId: 'task' } });
+  assert.equal([...f.records.values()][0].status, 'failed');
+  const retry = await f.service(input); assert.equal(retry.body.status, 'failed'); assert.equal(retry.httpStatus, 500); assert.equal(f.executions(), 0);
+});

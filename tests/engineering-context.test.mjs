@@ -1,0 +1,14 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {readFile} from 'node:fs/promises';
+import ts from 'typescript';
+const source=await readFile(new URL('../agent/lib/project-context.ts',import.meta.url),'utf8');
+const js=ts.transpileModule(source.replace(/import \* as repository from [^;]+;/,'const repository=globalThis.engineeringContextRepository;').replace(/import \{ executeEngineeringOperation[^;]+;/,'const executeEngineeringOperation=(deps,operation)=>globalThis.engineeringContextExecute(deps,operation);'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+let project;
+globalThis.engineeringContextRepository={getProjectBySession:async(owner,session)=>{assert.equal(owner,'trusted-owner');assert.equal(session,'root');return project;},bindProjectSession:async(owner,id,session)=>{assert.equal(id,'project');assert.equal(session,'root');return project;},getTask:async(owner,p,id)=>({id,projectId:p,requiredChecks:[]}),setActiveTask:async()=>{throw Error('Unexpected task switch');}};
+const context=await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
+const ctx=()=>({session:{id:'child',parent:{rootSessionId:'root',sessionId:'root',callId:'parent-call'},auth:{current:{principalId:'trusted-owner',principalType:'user',attributes:{engineeringProjectId:'project',engineeringTaskId:'A'}}}},callId:'child-call',getSandbox:async()=>({id:'root-sandbox'})});
+test('child A cannot mutate project after owner switches to B',async()=>{project={id:'project',sessionId:'root',activeTaskId:'B',sandboxId:'root-sandbox'};await assert.rejects(context.engineeringOperation(ctx(),{kind:'bash',command:'touch changed'}),/PARENT_TASK_BINDING_CHANGED/);});
+test('child gets authority from root lineage and writes through shared bound sandbox',async()=>{project={id:'project',sessionId:'root',activeTaskId:'A',sandboxId:'root-sandbox'};globalThis.engineeringContextExecute=(deps,operation)=>{assert.equal(deps.parentCallId,'parent-call');assert.equal(deps.rootSessionId,'root');assert.equal(deps.binding.task.id,'A');assert.equal(deps.sandbox.id,'root-sandbox');assert.equal(operation.callId,'child-call');return {status:'succeeded'};};assert.equal((await context.engineeringOperation(ctx(),{kind:'bash',command:'touch changed'})).status,'succeeded');});
+test('child fresh sandbox cannot share project authority',async()=>{project={id:'project',sessionId:'root',activeTaskId:'A',sandboxId:'root-sandbox'};const child=ctx();child.getSandbox=async()=>({id:'foreign-sandbox'});await assert.rejects(context.resolveProjectContext(child),/SHARED_PARENT_SANDBOX_REQUIRED/);});
+test('child missing originating task never falls back to mutable activeTaskId',async()=>{const child=ctx();child.session.auth.current.attributes={};await assert.rejects(context.resolveEngineeringBinding(child),/PARENT_TASK_AUTHORITY_REQUIRED/);});

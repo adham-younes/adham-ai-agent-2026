@@ -1,6 +1,8 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 import { completeTask, startTask, updateTask } from "@/lib/agent-task-state";
+import { resolveEngineeringBinding } from "../lib/project-context";
+import { verifyTask } from "@/lib/engineering/repository";
 import { taskState } from "../lib/task-state";
 
 const owner = z.enum(["coordinator", "planner", "researcher", "analyst", "executor", "reviewer"]);
@@ -15,7 +17,14 @@ export default defineTool({
   description: "أدر حالة مهمة مركبة داخل الجلسة: خطة من 1–8 خطوات، مالك لكل خطوة، انتقالات التنفيذ، ودليل تحقق قبل الإغلاق. الحالة تحفظها Eve عبر الأدوار وإعادة التشغيل. استخدمها للمهام متعددة المراحل فقط.",
   inputSchema,
   label: { start: ({ operation }) => `تحديث حالة المهمة: ${operation}` },
-  async execute(input) {
+  async execute(input, ctx) {
+    const binding = await resolveEngineeringBinding(ctx);
+    if (binding && input.operation === "complete") {
+      if (binding.task.kind === "analysis") throw new Error("OWNER_ACCEPTANCE_REQUIRED: Analysis reports require explicit owner acceptance.");
+      return { task: await verifyTask(binding.owner, binding.project.id, binding.task.id) };
+    }
+    if (binding && input.operation === "status") return { task: binding.task };
+    if (input.operation === "complete" && !binding) throw new Error("PROJECT_BINDING_REQUIRED: Textual evidence cannot verify an engineering task.");
     const now = new Date().toISOString();
     const current = taskState.get();
     if (input.operation === "status") return { task: current };

@@ -298,3 +298,49 @@ test("task plan rejects duplicate checks and trivial certification commands", ()
     false,
   );
 });
+function draftFixture({status='draft',version=3,currentRunId=null,latest='draft-run',frozenVersion=3,frozenExecution=null,runStatus='succeeded'}={}) {
+ let state={id:'task',status,version,current_run_id:currentRunId,latest_draft_run_id:latest}; let updates=0;
+ query=async(sql,args)=>{
+  if(sql.startsWith('select * from public.engineering_projects')) return {rows:[project]};
+  if(sql.startsWith('select * from public.engineering_tasks')) return {rows:[{...state}]};
+  if(sql.startsWith('select') && sql.includes('agent_workflow_runs')) return {rows:[{id:'draft-run',status:runStatus,project_id:'project',task_id:'task',draft_task_version:frozenVersion,draft_execution_run_id:frozenExecution}]};
+  if(sql.startsWith('update public.engineering_tasks')) { updates++; state={...state,status:args[3],version:state.version+1}; return {rows:[state],rowCount:1}; }
+  throw Error(`unexpected query ${sql}`);
+ };
+ return {state:()=>state,updates:()=>updates};
+}
+test('equal draft replay is idempotent and keeps task version stable',async()=>{
+ const f=draftFixture(); await repo.settleWorkflowDraft('owner','project','task','draft-run');
+ assert.equal(f.state().status,'needs_review'); assert.equal(f.state().version,4);
+ await repo.settleWorkflowDraft('owner','project','task','draft-run'); assert.equal(f.updates(),1); assert.equal(f.state().version,4);
+});
+for(const state of [{status:'needs_review',latest:'newer-draft'}, {status:'verified'}, {status:'needs_review',currentRunId:'newer-execution'}]) test('old failed draft replay cannot overwrite a newer attempt or verified task',async()=>{
+ const f=draftFixture({...state,runStatus:'failed'}); await repo.settleWorkflowDraft('owner','project','task','draft-run'); assert.equal(f.updates(),0); assert.equal(f.state().status,state.status);
+});
+test('child execution persists trusted parent call and root session lineage',async()=>{
+ let lineage;
+ query=async(sql,args)=>{
+  if(sql.startsWith('select * from public.engineering_projects')) return {rows:[project]};
+  if(sql.startsWith('select * from public.engineering_tasks')) return {rows:[{id:'task',status:'planned'}]};
+  if(sql.startsWith('select * from public.engineering_runs')) return {rows:[]};
+  if(sql.startsWith('insert into public.engineering_runs')) { assert.match(sql,/parent_call_id,root_session_id/); lineage=args.slice(7); return {rows:[{...run,id:args[0],status:'running',parent_call_id:args[7],root_session_id:args[8]}]}; }
+  return {rows:[],rowCount:1};
+ };
+ const claimed=await repo.claimRun('owner',{projectId:'project',taskId:'task',sessionId:'session',sandboxId:'sandbox',capability:'engineering:write',idempotencyKey:'child-call',parentCallId:'trusted-parent-call',rootSessionId:'trusted-root-session'});
+ assert.deepEqual(lineage,['trusted-parent-call','trusted-root-session']); assert.equal(claimed.run.parentCallId,'trusted-parent-call'); assert.equal(claimed.run.rootSessionId,'trusted-root-session');
+});
+test('idempotent child replay cannot replace original trusted lineage',async()=>{
+ query=async(sql)=>sql.includes('engineering_projects')?{rows:[project]}:sql.includes('engineering_tasks')?{rows:[{id:'task'}]}:{rows:[{...run,capability:'engineering:write',parent_call_id:'original-parent',root_session_id:'root'}]};
+ await assert.rejects(repo.claimRun('owner',{projectId:'project',taskId:'task',sessionId:'session',sandboxId:'sandbox',capability:'engineering:write',idempotencyKey:'child-call',parentCallId:'different-parent',rootSessionId:'root'}),/IDEMPOTENCY_CONFLICT/);
+});
+test('repeated draft attachment preserves latest attempt and frozen authority',async()=>{
+ let updates=0;
+ query=async(sql)=>{
+  if(sql.startsWith('select * from public.engineering_projects')) return {rows:[project]};
+  if(sql.startsWith('select * from public.engineering_tasks')) return {rows:[{id:'task',status:'needs_review',version:8,latest_draft_run_id:'newer-draft'}]};
+  if(sql.startsWith('select project_id,task_id')) return {rows:[{project_id:'project',task_id:'task'}]};
+  if(sql.startsWith('update')) updates++;
+  throw Error('Replay must not write');
+ };
+ await repo.attachWorkflowRun('owner','project','task','old-draft'); assert.equal(updates,0);
+});

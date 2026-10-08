@@ -273,6 +273,8 @@ export async function claimRun(
     taskId: string;
     sessionId: string;
     sandboxId?: string;
+    parentCallId?: string;
+    rootSessionId?: string;
     capability: string;
     idempotencyKey: string;
   },
@@ -290,7 +292,9 @@ export async function claimRun(
     if (replay.rows[0]) {
       if (
         replay.rows[0].task_id !== input.taskId ||
-        replay.rows[0].capability !== input.capability
+        replay.rows[0].capability !== input.capability ||
+        (replay.rows[0].parent_call_id ?? null) !== (input.parentCallId ?? null) ||
+        (replay.rows[0].root_session_id ?? null) !== (input.rootSessionId ?? null)
       )
         throw new Error("IDEMPOTENCY_CONFLICT");
       if (
@@ -315,7 +319,7 @@ export async function claimRun(
       throw new Error("TASK_IMMUTABLE");
     const id = randomUUID();
     const r = await db.query(
-      "insert into public.engineering_runs(id,owner_id,project_id,task_id,capability,idempotency_key,status,workspace_version) values($1,$2,$3,$4,$5,$6,'running',$7) returning *",
+      "insert into public.engineering_runs(id,owner_id,project_id,task_id,capability,idempotency_key,status,workspace_version,parent_call_id,root_session_id) values($1,$2,$3,$4,$5,$6,'running',$7,$8,$9) returning *",
       [
         id,
         owner,
@@ -324,6 +328,8 @@ export async function claimRun(
         input.capability,
         input.idempotencyKey,
         p.workspace_version,
+        input.parentCallId ?? null,
+        input.rootSessionId ?? null,
       ],
     );
     await db.query(
@@ -594,13 +600,28 @@ export async function attachWorkflowRun(
   workflowRunId: string,
 ) {
   return owned(owner, async (db) => {
-    await project(db, owner, p, true);
-    await task(db, owner, p, taskId);
+    const proj = await project(db, owner, p, true);
+    const t = await task(db, owner, p, taskId);
+    const existing = await db.query(
+      "select project_id,task_id from public.agent_workflow_runs where user_id=$1 and id=$2 for update",
+      [owner, workflowRunId],
+    );
+    const run = existing.rows[0];
+    if (!run) throw new Error("RUN_NOT_FOUND");
+    if (run.project_id !== null) {
+      if (run.project_id !== p || run.task_id !== taskId) throw new Error("IDEMPOTENCY_CONFLICT");
+      return; // Existing attachment is immutable, including its frozen task authority.
+    }
+    if (proj.active_run_id || ["verified", "accepted"].includes(t.status)) throw new Error("PROJECT_BUSY");
     const result = await db.query(
-      "update public.agent_workflow_runs set project_id=$3,task_id=$4 where user_id=$1 and id=$2 and (project_id is null or (project_id=$3 and task_id=$4))",
-      [owner, workflowRunId, p, taskId],
+      "update public.agent_workflow_runs set project_id=$3,task_id=$4,draft_task_version=$5,draft_execution_run_id=$6 where user_id=$1 and id=$2 and project_id is null",
+      [owner, workflowRunId, p, taskId, t.version, t.current_run_id],
     );
     if (result.rowCount !== 1) throw new Error("RUN_NOT_FOUND");
+    await db.query(
+      "update public.engineering_tasks set latest_draft_run_id=$4 where owner_id=$1 and project_id=$2 and id=$3",
+      [owner, p, taskId, workflowRunId],
+    );
   });
 }
 export async function settleWorkflowDraft(
@@ -612,23 +633,22 @@ export async function settleWorkflowDraft(
   return owned(owner, async (db) => {
     const proj = await project(db, owner, p, true);
     const t = await task(db, owner, p, taskId);
-    if (proj.active_run_id || ["verified", "accepted"].includes(t.status))
-      throw new Error("PROJECT_BUSY");
-    const run = await db.query(
-      "select status from public.agent_workflow_runs where user_id=$1 and project_id=$2 and task_id=$3 and id=$4",
+    const result = await db.query(
+      "select status,draft_task_version,draft_execution_run_id from public.agent_workflow_runs where user_id=$1 and project_id=$2 and task_id=$3 and id=$4",
       [owner, p, taskId, workflowRunId],
     );
-    if (!run.rows[0] || run.rows[0].status === "running")
-      throw new Error("RUN_NOT_READY");
-    const result = await db.query(
-      "update public.engineering_tasks set status=$4,version=version+1 where owner_id=$1 and project_id=$2 and id=$3 returning *",
-      [
-        owner,
-        p,
-        taskId,
-        run.rows[0].status === "succeeded" ? "needs_review" : "failed",
-      ],
+    const run = result.rows[0];
+    if (!run || run.status === "running") throw new Error("RUN_NOT_READY");
+    // A draft only settles the exact task attempt it was attached to. Stale and
+    // already-settled replays are reads; they cannot change status or version.
+    if (t.latest_draft_run_id !== workflowRunId || t.version !== run.draft_task_version ||
+        (t.current_run_id ?? null) !== (run.draft_execution_run_id ?? null) ||
+        ["verified", "accepted"].includes(t.status)) return map<Task>(t);
+    if (proj.active_run_id) throw new Error("PROJECT_BUSY");
+    const updated = await db.query(
+      "update public.engineering_tasks set status=$4,version=version+1 where owner_id=$1 and project_id=$2 and id=$3 and version=$5 and latest_draft_run_id=$6 and current_run_id is not distinct from $7::uuid returning *",
+      [owner, p, taskId, run.status === "succeeded" ? "needs_review" : "failed", run.draft_task_version, workflowRunId, run.draft_execution_run_id],
     );
-    return map<Task>(result.rows[0]);
+    return map<Task>(updated.rows[0] ?? t);
   });
 }
