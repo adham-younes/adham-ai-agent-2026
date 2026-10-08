@@ -386,6 +386,7 @@ export function EngineeringWorkspace({
                   className="engineering-page-count"
                   label="Projects on this page"
                   value={projects.length}
+                  description="Records loaded on the current page"
                 />
               ) : null}
               {projects.length ? (
@@ -423,7 +424,7 @@ export function EngineeringWorkspace({
                   </TableBody>
                 </Table>
               ) : !error ? (
-                <Empty title="No projects yet." />
+                <p className="engineering-empty">No projects yet.</p>
               ) : null}
               <Pagination
                 offset={offset}
