@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { mastra } from "@/lib/mastra";
+import { executeAgentWorkflow } from "@/lib/platform/workflow-service";
 
 export default defineTool({
   description:
@@ -13,16 +13,7 @@ export default defineTool({
   label: {
     start: ({ domainName }) => `تشغيل مسار هندسة قاعدة البيانات: ${domainName}`,
   },
-  async execute(input) {
-    const workflow = mastra.getWorkflow("databaseEngineeringWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: input });
-
-    return {
-      status: "DRAFT_READY",
-      workflowId: "autonomous-database-engineering",
-      runId: run.runId,
-      result,
-    };
+  async execute(input, ctx) {
+    return executeAgentWorkflow("database-engineering", input, ctx);
   },
 });

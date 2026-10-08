@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFile } from "node:fs/promises";
 import ts from "typescript";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 const source = await readFile(new URL("../lib/platform/run-repository.ts", import.meta.url), "utf8");
@@ -83,7 +84,7 @@ test("real feature input schema rejects empty requirements", async () => {
 const routeSource = await readFile(new URL("../app/api/executive-workflows/route.ts", import.meta.url), "utf8");
 let completionFails = false;
 const imports = {
-  "node:crypto": { randomUUID: () => "abcdefab-1234-4567-abcd-abcdefabcdef" },
+  "node:crypto": { createHash, randomUUID: () => "abcdefab-1234-4567-abcd-abcdefabcdef" },
   "next/headers": { headers: async () => new Headers() },
   "next/server": { NextResponse: Response },
   "@/lib/visitor-identity": { visitorIdFromRequest: () => "owner" },
@@ -91,7 +92,12 @@ const imports = {
   "@/lib/platform/run-repository": { hasDurableRunStore: () => true, createWorkflowRun: async () => ({ created: true }), completeWorkflowRun: async (value) => { if (completionFails) throw new Error("DB offline"); globalThis.lastCompletion = value; }, listWorkflowRuns: async () => [], getWorkflowRun: async () => null },
   "@/lib/platform/workflows": { workflowRequestSchema: { safeParse: (data) => ({ success: true, data }) }, validateWorkflowInput: (_id, data) => ({ success: true, data }), resolveWorkflow: () => ({ id: "feature-delivery", key: "featureDeliveryWorkflow" }), workflowCatalog: [] },
 };
+imports["./run-repository"] = imports["@/lib/platform/run-repository"];
+imports["./workflows"] = imports["@/lib/platform/workflows"];
+const serviceSource = await readFile(new URL("../lib/platform/workflow-service.ts", import.meta.url), "utf8");
 globalThis.workflowRouteImports = imports;
+const serviceJs = ts.transpileModule(serviceSource.replace(/import \{([\s\S]*?)\} from "([^"]+)";/g, (_all, symbols, path) => `const {${symbols}} = globalThis.workflowRouteImports[${JSON.stringify(path)}];`), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+imports["@/lib/platform/workflow-service"] = await import(`data:text/javascript;base64,${Buffer.from(serviceJs).toString("base64")}`);
 const routeJs = ts.transpileModule(routeSource.replace(/import \{([\s\S]*?)\} from "([^"]+)";/g, (_all, symbols, path) => `const {${symbols}} = globalThis.workflowRouteImports[${JSON.stringify(path)}];`), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
 const route = await import(`data:text/javascript;base64,${Buffer.from(routeJs).toString("base64")}`);
 const request = () => new Request("https://example.com/api/executive-workflows", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ workflowId: "feature-delivery", inputData: {}, idempotencyKey: "repeat-key" }) });
@@ -166,4 +172,15 @@ test("storage initializes with defaults hardened only for its current role", asy
   } finally {
     if (previous === undefined) delete process.env.POSTGRES_URL; else process.env.POSTGRES_URL = previous;
   }
+});
+
+
+test("Eve failure is a failed action and uses trusted principal/call replay key", async () => {
+  completionFails = false;
+  imports["@/lib/mastra"].mastra.getWorkflow = () => ({ createRun: async () => ({ start: async () => ({ status: "failed" }) }) });
+  // The service captured its repository function; inspect the completion owner and bounded error.
+  const ctx = { callId: "trusted-call", session: { id: "trusted-session", auth: { current: { principalId: "owner" } } } };
+  await assert.rejects(imports["@/lib/platform/workflow-service"].executeAgentWorkflow("feature-delivery", {}, ctx), /WORKFLOW_EXECUTION_FAILED/);
+  assert.equal(globalThis.lastCompletion.userId, "owner");
+  await assert.rejects(imports["@/lib/platform/workflow-service"].executeAgentWorkflow("feature-delivery", { owner: "forged" }, { ...ctx, session: { id: "trusted-session", auth: { current: null } } }), /UNAUTHORIZED/);
 });

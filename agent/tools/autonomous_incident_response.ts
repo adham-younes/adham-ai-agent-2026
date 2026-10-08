@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { mastra } from "@/lib/mastra";
+import { executeAgentWorkflow } from "@/lib/platform/workflow-service";
 
 export default defineTool({
   description:
@@ -34,16 +34,7 @@ export default defineTool({
     start: ({ incidentTitle }) =>
       `بدء استجابة SRE الذاتية للحادث: ${incidentTitle}`,
   },
-  async execute(input) {
-    const workflow = mastra.getWorkflow("incidentResponseWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: input });
-
-    return {
-      status: "DRAFT_READY",
-      workflowId: "autonomous-incident-response",
-      runId: run.runId,
-      result,
-    };
+  async execute(input, ctx) {
+    return executeAgentWorkflow("incident-response", input, ctx);
   },
 });

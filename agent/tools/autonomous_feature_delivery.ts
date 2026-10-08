@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { mastra } from "@/lib/mastra";
+import { executeAgentWorkflow } from "@/lib/platform/workflow-service";
 
 export default defineTool({
   description:
@@ -16,16 +16,7 @@ export default defineTool({
   label: {
     start: ({ featureTitle }) => `تشغيل مسار تسليم الميزة: ${featureTitle}`,
   },
-  async execute(input) {
-    const workflow = mastra.getWorkflow("featureDeliveryWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: input });
-
-    return {
-      status: "DRAFT_READY",
-      workflowId: "autonomous-feature-delivery",
-      runId: run.runId,
-      result,
-    };
+  async execute(input, ctx) {
+    return executeAgentWorkflow("feature-delivery", input, ctx);
   },
 });

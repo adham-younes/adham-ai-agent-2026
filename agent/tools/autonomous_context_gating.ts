@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { mastra } from "@/lib/mastra";
+import { executeAgentWorkflow } from "@/lib/platform/workflow-service";
 
 export default defineTool({
   description:
@@ -31,16 +31,7 @@ export default defineTool({
     start: ({ episodeTask }) =>
       `تقييم بوابة السياق والتعلم المستمر لـ: ${episodeTask}`,
   },
-  async execute(input) {
-    const workflow = mastra.getWorkflow("continualLearningWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: input });
-
-    return {
-      status: "DRAFT_READY",
-      workflowId: "autonomous-continual-learning",
-      runId: run.runId,
-      result,
-    };
+  async execute(input, ctx) {
+    return executeAgentWorkflow("continual-learning", input, ctx);
   },
 });

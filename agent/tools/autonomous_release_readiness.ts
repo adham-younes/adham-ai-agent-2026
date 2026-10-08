@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { mastra } from "@/lib/mastra";
+import { executeAgentWorkflow } from "@/lib/platform/workflow-service";
 
 export default defineTool({
   description:
@@ -27,16 +27,7 @@ export default defineTool({
     start: ({ appName, targetEnvironment }) =>
       `فحص وتدقيق جاهزية النشر: ${appName} (${targetEnvironment})`,
   },
-  async execute(input) {
-    const workflow = mastra.getWorkflow("releaseDeploymentWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: input });
-
-    return {
-      status: "DRAFT_READY",
-      workflowId: "autonomous-release-readiness",
-      runId: run.runId,
-      result,
-    };
+  async execute(input, ctx) {
+    return executeAgentWorkflow("release-readiness", input, ctx);
   },
 });

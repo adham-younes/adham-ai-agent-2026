@@ -1,6 +1,6 @@
 import { defineTool } from "eve/tools";
 import { z } from "zod";
-import { mastra } from "@/lib/mastra";
+import { executeAgentWorkflow } from "@/lib/platform/workflow-service";
 
 export default defineTool({
   description:
@@ -13,16 +13,7 @@ export default defineTool({
   label: {
     start: ({ targetFilePath }) => `تدقيق وإصلاح الكود جراحياً: ${targetFilePath}`,
   },
-  async execute(input) {
-    const workflow = mastra.getWorkflow("codeAuditAndRepairWorkflow");
-    const run = await workflow.createRun();
-    const result = await run.start({ inputData: input });
-
-    return {
-      status: "DRAFT_READY",
-      workflowId: "autonomous-code-audit-repair",
-      runId: run.runId,
-      result,
-    };
+  async execute(input, ctx) {
+    return executeAgentWorkflow("code-audit-repair", input, ctx);
   },
 });
