@@ -45,6 +45,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/ui/stat-card";
 import type {
   Project,
   Task,
@@ -282,7 +283,10 @@ export function EngineeringWorkspace({
           ) : null}
         </SidebarContent>
         <SidebarFooter>
-          <SidebarItem onClick={() => setWorkspaceMenu(true)}>
+          <SidebarItem
+            icon={<FolderOpenDuotoneIcon />}
+            onClick={() => setWorkspaceMenu(true)}
+          >
             Workspace menu
           </SidebarItem>
           <p className="engineering-privacy">Private to this browser.</p>
@@ -328,9 +332,13 @@ export function EngineeringWorkspace({
         <div className="engineering-content">
           <div className="engineering-heading">
             <div>
-              <h1 dir="auto">
-                {task?.title ?? project?.name ?? "Engineering projects"}
-              </h1>
+              {!projectId ? (
+                <h1>Engineering projects</h1>
+              ) : (
+                <h1 dir="auto">
+                  {task?.title ?? project?.name ?? "Loading project…"}
+                </h1>
+              )}
               <p dir="auto">
                 {task
                   ? `Revision ${project?.workspaceVersion ?? 0} · ${task.kind === "analysis" ? "Analysis and report" : "Implementation"}`
@@ -338,14 +346,16 @@ export function EngineeringWorkspace({
                     "Plan, build, and verify software projects.")}
               </p>
             </div>
-            {task ? (
+            {!projectId ? (
+              <Button onClick={() => setCreating(true)}>New project</Button>
+            ) : task ? (
               <Badge variant="outline">{displayStatus(task.status)}</Badge>
             ) : (
               <Button
                 onClick={() => setCreating(true)}
                 disabled={Boolean(projectId && !project)}
               >
-                {project ? "New task" : "New project"}
+                New task
               </Button>
             )}
           </div>
@@ -371,6 +381,13 @@ export function EngineeringWorkspace({
           {!projectId && !loading ? (
             <section className="engineering-panel">
               <h2>Recent projects</h2>
+              {projects.length > 0 ? (
+                <StatCard
+                  className="engineering-page-count"
+                  label="Projects on this page"
+                  value={projects.length}
+                />
+              ) : null}
               {projects.length ? (
                 <Table>
                   <TableHeader>
@@ -406,7 +423,7 @@ export function EngineeringWorkspace({
                   </TableBody>
                 </Table>
               ) : !error ? (
-                <Empty title="No projects yet" />
+                <Empty title="No projects yet." />
               ) : null}
               <Pagination
                 offset={offset}
